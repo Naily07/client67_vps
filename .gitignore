@@ -1,0 +1,8 @@
+.env
+build.sh
+__pycache__/
+/workflows
+*.pyc
+**/__pycache__/
+/venv
+/staticfiles

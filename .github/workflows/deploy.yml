@@ -1,0 +1,55 @@
+name: Deploy Django Project via FTP
+
+on:
+  push:
+    branches:
+      - master  # Déclencher le déploiement sur la branche `master`
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Deploy to FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ftp.digievo.mg
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./
+          server-dir: domains/api-client67.digievo.mg/public_html/pharma/
+          exclude: |
+            .git*
+            venv/
+      - name: Set up SSH
+        uses: appleboy/ssh-action@v0.1.8
+        with:
+          host: ${{ secrets.SERVER_HOST }}  # Adresse IP ou domaine de votre serveur
+          username: ${{ secrets.SERVER_USERNAME }}  # Nom d'utilisateur sur votre serveur
+          key: ${{ secrets.SERVER_SSH_KEY }}  # Clé privée SSH que vous avez ajoutée dans les secrets
+          port: 22
+          script: |
+            # Activer l'environnement virtuel
+            source /home/digievom/virtualenv/domains/api-client67.digievo.mg/public_html/pharma/3.11/bin/activate
+            
+            # Créer un fichier .env avec les variables sensibles
+            # cat << EOF > /home/dispensa/domains/dispensaire-fitahiana.com/public_html/pharma/.env
+            # CORS_ALLOWED_ORIGINS=${{ secrets.CORS_ALLOWED_ORIGINS }}
+            # DB_HOST=${{ secrets.DB_HOST }}
+            # DB_NAME=${{ secrets.DB_NAME }}
+            # DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            # DB_PORT=${{ secrets.DB_PORT }}
+            # DEBUG=${{ secrets.DEBUG }}
+            # DB_USER=${{ secrets.DB_USER }}
+            # SECRET_KEY=${{ secrets.SECRET_KEY}}
+            # EOF
+
+            # Installer les dépendances depuis le fichier requirements.txt
+
+            pip install -r /home/digievom/domains/api-client67.digievo.mg/public_html/pharma/requirements.txt --upgrade
+            
+            # Collecter les fichiers statiques
+            python /home/digievom/domains/api-client67.digievo.mg/public_html/pharma/manage.py collectstatic --noinput
