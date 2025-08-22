@@ -1,55 +1,48 @@
-name: Deploy Django Project via FTP
+name: Deploy client67_c to VPS_Contabo
 
 on:
   push:
     branches:
-      - master  # Déclencher le déploiement sur la branche `master`
+      - master  # ou develop
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
+    # 1️⃣ Checkout code
+    - name: Checkout code
+      uses: actions/checkout@v3
 
-      - name: Deploy to FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ftp.digievo.mg
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./
-          server-dir: domains/api-client67.digievo.mg/public_html/pharma/
-          exclude: |
-            .git*
-            venv/
-      - name: Set up SSH
-        uses: appleboy/ssh-action@v0.1.8
-        with:
-          host: ${{ secrets.SERVER_HOST }}  # Adresse IP ou domaine de votre serveur
-          username: ${{ secrets.SERVER_USERNAME }}  # Nom d'utilisateur sur votre serveur
-          key: ${{ secrets.SERVER_SSH_KEY }}  # Clé privée SSH que vous avez ajoutée dans les secrets
-          port: 22
-          script: |
-            # Activer l'environnement virtuel
-            source /home/digievom/virtualenv/domains/api-client67.digievo.mg/public_html/pharma/3.11/bin/activate
-            
-            # Créer un fichier .env avec les variables sensibles
-            # cat << EOF > /home/dispensa/domains/dispensaire-fitahiana.com/public_html/pharma/.env
-            # CORS_ALLOWED_ORIGINS=${{ secrets.CORS_ALLOWED_ORIGINS }}
-            # DB_HOST=${{ secrets.DB_HOST }}
-            # DB_NAME=${{ secrets.DB_NAME }}
-            # DB_PASSWORD=${{ secrets.DB_PASSWORD }}
-            # DB_PORT=${{ secrets.DB_PORT }}
-            # DEBUG=${{ secrets.DEBUG }}
-            # DB_USER=${{ secrets.DB_USER }}
-            # SECRET_KEY=${{ secrets.SECRET_KEY}}
-            # EOF
+    # 2️⃣ Setup SSH
+    - name: Setup SSH
+      uses: webfactory/ssh-agent@v0.7.0
+      with:
+        ssh-private-key: ${{ secrets.VPS_SSH_KEY }}
 
-            # Installer les dépendances depuis le fichier requirements.txt
+    # 3️⃣ Créer le .env sur le VPS pour Project1
+    - name: Create .env for client67
+      run: |
+        ssh -o StrictHostKeyChecking=no ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "
+        mkdir -p ~/pharma_app/client67 &&
+        echo 'SECRET_KEY=${{ secrets.SECRET_KEY }}' > ~/pharma_app/client67/.env &&
+        echo 'DB_PASSWORD=${{ secrets.DB_PASSWORD }}' >> ~/pharma_app/client67/.env &&
+        echo 'DB_USER=${{ secrets.DB_USER }}' >> ~/pharma_app/client67/.env &&
+        echo 'DB_NAME=${{ secrets.DB_NAME }}' >> ~/pharma_app/client67/.env &&
+        echo 'DB_HOST=db' >> ~/pharma_app/client67/.env &&
+        echo 'DB_PORT=3306' >> ~/pharma_app/client67/.env
+        "
 
-            pip install -r /home/digievom/domains/api-client67.digievo.mg/public_html/pharma/requirements.txt --upgrade
-            
-            # Collecter les fichiers statiques
-            python /home/digievom/domains/api-client67.digievo.mg/public_html/pharma/manage.py collectstatic --noinput
+    # 4️⃣ Copier uniquement Project1 sur le VPS
+    - name: Copy client67 to VPS
+      run: |
+        rsync -avz --exclude='.env' ./ ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:~/pharma_app/client67/
+
+    # 5️⃣ Build et redémarre uniquement le conteneur Project1
+    - name: Deploy client67 with Docker Compose
+      run: |
+        ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "
+        cd ~/pharma_app/deployment &&
+        docker compose build client67 &&
+        docker compose up -d client67
+        "
