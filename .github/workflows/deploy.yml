@@ -30,6 +30,7 @@ jobs:
         echo 'DB_USER=${{ secrets.DB_USER }}' >> ~/pharma_app/client67/.env &&
         echo 'DB_NAME=${{ secrets.DB_NAME }}' >> ~/pharma_app/client67/.env &&
         echo 'DEBUG=${{ secrets.DEBUG }}' >> ~/pharma_app/client67/.env
+        echo 'CSRF_TRUSTED_ORIGINS=${{ secrets.CSRF_TRUSTED_ORIGINS }}' >> ~/pharma_app/client67/.env
         echo 'DB_HOST=db' >> ~/pharma_app/client67/.env &&
         echo 'ALLOWED_HOSTS=${{ secrets.ALLOWED_HOSTS }}' >> ~/pharma_app/client67/.env &&
         echo 'DB_PORT=3306' >> ~/pharma_app/client67/.env
