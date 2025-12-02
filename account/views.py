@@ -6,6 +6,7 @@ from .models import CustomUser
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import AuthenticationFailed
+from rest_framework.permissions import IsAuthenticated
 from api.serializers import MyTokenObtainPairSerializer, TokenSetPassword
 from rest_framework import status
 from api.mixins import PropriosEditorMixin, ProprioQueryset
@@ -162,3 +163,48 @@ class Login(APIView):
         
         except Exception as e:
             raise AuthenticationFailed(f"Login error {e}")
+class GetAccount(generics.RetrieveAPIView):
+    queryset = CustomUser.objects.all()
+    serializer_class = CustomUserSerialiser
+    permission_classes = [IsAuthenticated, ]
+    lookup_field = "pk"
+    
+    def get_object(self):
+        user = self.request.user
+        user_id = CustomUser.objects.get(id = user.id).id
+        if user_id == self.kwargs['pk'] or user.is_superuser:
+            return self.request.user
+        else :
+            raise ValidationError({"detail": "Utilisateur Invalide."})
+
+class UpdateAccount(generics.UpdateAPIView):
+    queryset = CustomUser.objects.all()
+    serializer_class = CustomUserSerialiser
+    permission_classes = [IsAuthenticated, ]
+    lookup_field = "pk"
+
+    def get_object(self):
+        user = self.request.user
+        user_id = CustomUser.objects.get(id = user.id).id
+        if user_id == self.kwargs['pk'] or user.is_superuser:
+            return self.request.user
+        else :
+            raise ValidationError({"detail": "Utilisateur Invalide."})
+
+    
+    def patch(self, request, *args, **kwargs):
+        return super().patch(request, *args, **kwargs)
+
+from .serialisers import ChangePasswordSerialiser
+class ChangePasswordView(APIView):
+    permission_classes = [IsAuthenticated,]
+
+    def post(self, request, *args, **kwargs):
+        serializer = ChangePasswordSerialiser(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        if serializer.is_valid():
+            user = request.user
+            user.set_password(serializer.validated_data['new_password'])
+            user.save()
+            return Response({"message": "Mot de passe mis à jour avec succès."}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

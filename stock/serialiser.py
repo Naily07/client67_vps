@@ -133,7 +133,6 @@ class AjoutStockSerialiser(serializers.ModelSerializer):
 class VenteProductSerializer(serializers.ModelSerializer):
     # qte_detail_transaction = serializers.IntegerField(min_value = 0)
     qte_gros_transaction = serializers.IntegerField(min_value = 0)
-    # qte_unit_transaction = serializers.IntegerField(min_value = 0)
     type_transaction = serializers.ChoiceField([
         ('Vente' , 'Vente'),
         ('Ajout', 'Ajout'),

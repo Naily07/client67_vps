@@ -36,3 +36,16 @@ class CustomUserSerialiser(serializers.ModelSerializer):
         user.set_password(password)
         user.save()
         return user
+class ChangePasswordSerialiser(serializers.ModelSerializer):
+    current_password = serializers.CharField(write_only=True, required=True)
+    new_password = serializers.CharField(write_only=True, required=True)
+
+    class Meta:
+        model = CustomUser
+        fields = ["current_password", "new_password"]
+        
+    def validate_current_password(self, value):
+        user = self.context['request'].user
+        if not user.check_password(value):
+            raise serializers.ValidationError("Current password does not match")
+        return value

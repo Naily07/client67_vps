@@ -121,6 +121,9 @@ class FilAttenteProduct(models.Model):
         if(id):
             filAttente = FilAttenteProduct.objects.get(id=id)
             allVenteProduct = filAttente.venteproduct_related.all()
+            fil_attente_ct = ContentType.objects.get_for_model(FilAttenteProduct)
+            regelements = Reglement.objects.filter(object_id = id, content_type=fil_attente_ct,)
+
             facture = Facture(
                 prix_total = filAttente.prix_total,
                 prix_restant = filAttente.prix_restant,
@@ -128,6 +131,13 @@ class FilAttenteProduct(models.Model):
                 owner = filAttente.owner
             )
             facture.save()
+            for reglement in regelements:
+                Reglement.objects.create(
+                    content_type=ContentType.objects.get_for_model(facture),
+                    object_id=facture.id,
+                    montant=reglement.montant
+                )
+                reglement.delete()
             for vente in allVenteProduct:
                 vente.fil_attente = None
                 vente.facture = facture
@@ -139,6 +149,11 @@ class FilAttenteProduct(models.Model):
             raise ValueError("Fil d'attente inexistant")
 
 class VenteProduct(Transaction):
+    prix_vente = models.DecimalField(max_digits=10, decimal_places=0, blank=True, default=0)
     facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name="%(class)s_related", null=True)
     fil_attente = models.ForeignKey(FilAttenteProduct, on_delete=models.SET_NULL, related_name="%(class)s_related", null=True)
     
+    def save(self, *args, **kwargs):
+        if not self.prix_vente and self.product:
+            self.prix_vente = self.product.prix_gros
+        return super().save(*args, **kwargs)
