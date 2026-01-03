@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'rest_framework_simplejwt',
+    'channels',
     'account',
     'stock'
 ]
@@ -97,11 +98,29 @@ CORS_ALLOW_METHODS = [
     "POST",
     "PUT",
 ]
-
-CORS_ALLOW_ALL_ORIGINS = True
+# Pour le développement, vous pouvez autoriser toutes les origines. En production, il est fortement recommandé de le mettre à False et de spécifier les origines autorisées dans CORS_ALLOWED_ORIGINS.
+CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=True, cast=bool)
 CORS_ALLOW_CREDENTIALS = True
 WSGI_APPLICATION = 'pharma.wsgi.application'
+ASGI_APPLICATION = 'pharma.asgi.application'
 
+# Configuration pour Django Channels
+REDIS_HOST = config('REDIS_HOST', 'localhost')
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': "channels_redis.core.RedisChannelLayer",
+        'CONFIG': {
+            # L'hôte est 127.0.0.1 et le port 6379, car c'est là que Docker expose Redis
+            "hosts": [(REDIS_HOST, 6379)], 
+        },
+    },
+}
+
+# CHANNEL_LAYERS = {
+#     "default": {
+#         "BACKEND": "channels.layers.InMemoryChannelLayer"
+#     }
+# }
 
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
@@ -112,17 +131,6 @@ WSGI_APPLICATION = 'pharma.wsgi.application'
 #         default=f'sqlite:///{BASE_DIR / "db.sqlite3"}',
 #         cast=dburl
 #     )
-# }
-# Echanger les dataBase en production
-# DATABASES = {
-#     'default': {
-#         'ENGINE': 'django.db.backends.postgresql',
-#         'NAME': 'pharma',
-#         'USER': 'postgres',
-#         'PASSWORD': '1322',
-#         'HOST': 'localhost',  # ou l'adresse IP de votre serveur PostgreSQL
-#         'PORT': '5432',       # le port par défaut de PostgreSQL
-#     }
 # }
 DATABASES = {
     'default': {

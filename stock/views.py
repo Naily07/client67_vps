@@ -17,6 +17,9 @@ from api.mixins import userFactureQs
 from django.db import transaction
 from django.contrib.contenttypes.models import ContentType
 from rest_framework.pagination import PageNumberPagination
+
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 # Create your views here.
 class CreateDetail(generics.ListCreateAPIView): 
     queryset = Detail.objects.all()
@@ -129,15 +132,11 @@ class UpdateProduct(generics.RetrieveUpdateAPIView):
     def patch(self, request, *args, **kwargs):
         datas = request.data.copy()
         user = request.user
-        designation = datas.get('designation', '')
 
         with transaction.atomic():
+            product = self.get_object()            
+            designation = datas.get('designation', '')
             qte_gros = int(datas['qte_gros'])
-            try : 
-                product = Product.objects.get(pk = datas['pk'])
-            except Product.DoesNotExist:
-                return Response({"message":"produit introuvable"}, status=status.HTTP_404_NOT_FOUND)
-            prix_gros = datas['prix_gros'] if datas['prix_gros'] else product.prix_gros
             if int(qte_gros)<0:
                 return Response({"message" : "Les valeurs ne peuvent pas être negatif"}, status=status.HTTP_400_BAD_REQUEST)
             if  int(qte_gros)>0:
@@ -145,13 +144,13 @@ class UpdateProduct(generics.RetrieveUpdateAPIView):
                 # qte_detail += product.qte_detail
                 datas['qte_gros'] = qte_gros
             else :
-                datas.pop("qte_gros")
+                datas.pop("qte_gros", None)
             if designation :
                 productDetail = product.detail
                 productDetail.designation = designation
                 productDetail.save()
             
-
+            prix_gros = datas.get('prix_gros', product.prix_gros)
             AjoutStock.objects.create(
                 # qte_unit_transaction=qte_unit,
                 qte_gros_transaction= qte_gros,
@@ -164,9 +163,21 @@ class UpdateProduct(generics.RetrieveUpdateAPIView):
                 product=product,
                 gestionnaire=user   
             )
-
-            request._full_data = datas
-        return super().patch(request, *args, **kwargs)
+        request._full_data = datas
+        response =  super().patch(request, *args, **kwargs)
+        if(response):
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                "stock_updates",
+                 {
+                    "type": "stock_update",
+                    "message": {
+                        "event": "product_updated",
+                        "data": response.data
+                    }
+                }
+            )
+        return response
     
 class DeleteProduct(generics.DestroyAPIView, generics.ListAPIView, GestionnaireEditorMixin):
     queryset = Product.objects.all()
