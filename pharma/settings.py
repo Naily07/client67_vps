@@ -89,7 +89,13 @@ TEMPLATES = [
     },
 ]
 CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='',  cast=lambda v: [s.strip() for s in v.split(",") if s.strip()])
-CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='', cast=lambda v: [s.strip() for s in v.split(',')])
+CORS_ALLOWED_ORIGINS = [
+    origin for origin in config(
+        'CORS_ALLOWED_ORIGINS',
+        default=''
+    ).split(',')
+    if origin.strip()
+]
 CORS_ALLOW_METHODS = [
     "DELETE",
     "GET",
