@@ -43,10 +43,10 @@ jobs:
 
     # 5️⃣ Build et redémarre uniquement le conteneur Project1
     - name: Deploy client67 with Docker Compose
-    run: |
-      ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "
-      cd ~/pharma_app/deployment &&
-      docker compose build client67_api client67_ws &&
-      docker compose run --rm client67_api python manage.py migrate &&
-      docker compose up -d client67_api client67_ws
-      "
+      run: |
+        ssh ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }} "
+        cd ~/pharma_app/deployment &&
+        docker compose build client67_api client67_ws &&
+        docker compose run --rm client67_api python manage.py migrate &&
+        docker compose up -d client67_api client67_ws
+        "
