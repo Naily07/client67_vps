@@ -36,6 +36,22 @@ class CreateProduct(GestionnaireEditorMixin, generics.CreateAPIView):
     queryset = Product.objects.all()
     serializer_class = ProductSerialiser
 
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        if response:
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                "stock_updates",
+                 {
+                    "type": "stock_update",
+                    "message": {
+                        "event": "product_created",
+                        "data": response.data
+                    }
+                }
+            )
+        return response
+
 class CreateBulkStock(GestionnaireEditorMixin, APIView):
     # permission_classes = [IsAuthenticated, IsGestionnaire]
     def post(self, request):
@@ -119,6 +135,18 @@ class CreateBulkStock(GestionnaireEditorMixin, APIView):
 
                 AjoutStock.objects.bulk_create(addStockListInstance)
 
+                channel_layer = get_channel_layer()
+                async_to_sync(channel_layer.group_send)(
+                    "stock_updates",
+                     {
+                        "type": "stock_update",
+                        "message": {
+                            "event": "product_bulk_updated",
+                            "data": "Success"
+                        }
+                    }
+                )
+
                 return Response("Success", status=status.HTTP_201_CREATED)
         
         except Exception as e:
@@ -183,6 +211,23 @@ class DeleteProduct(generics.DestroyAPIView, generics.ListAPIView, GestionnaireE
     queryset = Product.objects.all()
     serializer_class = ProductSerialiser
 
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        data_id = instance.id
+        response = super().destroy(request, *args, **kwargs)
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "stock_updates",
+                {
+                "type": "stock_update",
+                "message": {
+                    "event": "product_deleted",
+                    "data": {"id": data_id}
+                }
+            }
+        )
+        return response
+
 class SellProduct(VendeurEditorMixin, generics.ListCreateAPIView):
     queryset = VenteProduct.objects.all()
     serializer_class = VenteProductSerializer
@@ -208,6 +253,18 @@ class SellProduct(VendeurEditorMixin, generics.ListCreateAPIView):
 
             serializer.save(facture = facture)
             instanceP = serializer.instance
+
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                "stock_updates",
+                 {
+                    "type": "stock_update",
+                    "message": {
+                        "event": "product_updated",
+                        "data": ProductSerialiser(produit).data
+                    }
+                }
+            )
         #Capture l'erreur de validation
         except ValidationError as e:
             raise e
@@ -294,6 +351,19 @@ class SellBulkProduct(VendeurEditorMixin, generics.ListCreateAPIView):
                 
                 if len(venteInstancList) > 0:
                     VenteProduct.objects.bulk_create(venteInstancList)
+
+                    channel_layer = get_channel_layer()
+                    async_to_sync(channel_layer.group_send)(
+                        "stock_updates",
+                        {
+                            "type": "stock_update",
+                            "message": {
+                                "event": "product_bulk_updated",
+                                "data": "Success"
+                            }
+                        }
+                    )
+
                     factureData = Facture.objects.filter(pk=facture.pk).first()
                     factureDatas = FactureSerialiser(factureData).data
                     return Response(factureDatas, status=status.HTTP_201_CREATED)
@@ -384,6 +454,19 @@ class CreateFilAttenteProduct(VendeurEditorMixin, generics.ListCreateAPIView):
                 
                 if len(venteInstancList) > 0:
                     VenteProduct.objects.bulk_create(venteInstancList)
+
+                    channel_layer = get_channel_layer()
+                    async_to_sync(channel_layer.group_send)(
+                        "stock_updates",
+                        {
+                            "type": "stock_update",
+                            "message": {
+                                "event": "product_bulk_updated",
+                                "data": "Success"
+                            }
+                        }
+                    )
+
                     # filDatas = FilAttenteProduct.objects.filter(id__iexact = filAttente.id).first()
                     filAttentesSerialiser = FilAttenteSerialiser(filAttente).data
                     # print("Return", filAttentesSerialiser)
@@ -431,6 +514,19 @@ class CancelFilAttente(VendeurEditorMixin, generics.RetrieveDestroyAPIView):
                     vente.delete()
                 
                 self.perform_destroy(instance)
+
+                channel_layer = get_channel_layer()
+                async_to_sync(channel_layer.group_send)(
+                    "stock_updates",
+                        {
+                        "type": "stock_update",
+                        "message": {
+                            "event": "product_bulk_updated",
+                            "data": "Success"
+                        }
+                    }
+                )
+
                 return Response(status=status.HTTP_200_OK, data=ProductSerialiser(productList, many = True).data)
             except Product.DoesNotExist:
                 return Response({"message": "Produit introuvable"}, status=status.HTTP_404_NOT_FOUND)
@@ -559,6 +655,18 @@ class UpdateFilAttente(VendeurEditorMixin, generics.UpdateAPIView):
                 filAttente.prix_total = new_total
                 filAttente.save()
 
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                "stock_updates",
+                    {
+                    "type": "stock_update",
+                    "message": {
+                        "event": "product_bulk_updated",
+                        "data": "Success"
+                    }
+                }
+            )
+
             return Response(FilAttenteSerialiser(filAttente).data, status=status.HTTP_205_RESET_CONTENT) 
         except FilAttenteProduct.DoesNotExist:
             return Response({"message":"Fil d'attente introuvale"})
@@ -605,6 +713,18 @@ class DeleteVente(VendeurEditorMixin, generics.DestroyAPIView):
                         filAttente.prix_restant = max(0, filAttente.prix_restant - totalVenteDeleted)
                     filAttente.save()
 
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                "stock_updates",
+                    {
+                    "type": "stock_update",
+                    "message": {
+                        "event": "product_updated",
+                        "data": ProductSerialiser(product).data
+                    }
+                }
+            )
+
             return Response(status=status.HTTP_204_NO_CONTENT)
         except AttributeError as e:
             return Response({"message": f"Erreur d'attribut{e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -648,6 +768,19 @@ class CancelFacture(VendeurEditorMixin, generics.RetrieveDestroyAPIView):
                     product.save()
                     
                 self.perform_destroy(instance)
+
+                channel_layer = get_channel_layer()
+                async_to_sync(channel_layer.group_send)(
+                    "stock_updates",
+                        {
+                        "type": "stock_update",
+                        "message": {
+                            "event": "product_bulk_updated",
+                            "data": "Success"
+                        }
+                    }
+                )
+
                 return Response(status=status.HTTP_200_OK, data=ProductSerialiser(product).data)
             except Product.DoesNotExist:
                 return Response({"message": "Produit introuvable"}, status=status.HTTP_404_NOT_FOUND)
