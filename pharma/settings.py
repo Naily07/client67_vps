@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'channels',
+    'api',
     'account',
     'stock'
 ]
@@ -61,11 +62,11 @@ AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
 )
 MIDDLEWARE = [
-    'django.middleware.security.SecurityMiddleware',
+'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',   # 👈 DOIT ÊTRE EN HAUT
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
