@@ -62,8 +62,8 @@ AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
 )
 MIDDLEWARE = [
-'django.middleware.security.SecurityMiddleware',
-    'corsheaders.middleware.CorsMiddleware',   # 👈 DOIT ÊTRE EN HAUT
+    'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -89,11 +89,11 @@ TEMPLATES = [
         },
     },
 ]
-# CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='',  cast=lambda v: [s.strip() for s in v.split(",") if s.strip()])
+# CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='http://localhost:5173',  cast=lambda v: [s.strip() for s in v.split(",") if s.strip()])
 CORS_ALLOWED_ORIGINS = [
     origin for origin in config(
         'CORS_ALLOWED_ORIGINS',
-        default=''
+        default='http://localhost:5173'
     ).split(',')
     if origin.strip()
 ]
@@ -106,8 +106,8 @@ CORS_ALLOW_METHODS = [
     "PUT",
 ]
 # Pour le développement, vous pouvez autoriser toutes les origines. En production, il est fortement recommandé de le mettre à False et de spécifier les origines autorisées dans CORS_ALLOWED_ORIGINS.
-CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=True, cast=bool)
-CORS_ALLOW_CREDENTIALS = False
+CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_CREDENTIALS = True
 WSGI_APPLICATION = 'pharma.wsgi.application'
 ASGI_APPLICATION = 'pharma.asgi.application'
 

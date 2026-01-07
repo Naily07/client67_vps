@@ -2,7 +2,7 @@
 from .permissions import *
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import ValidationError
-
+from rest_framework.permissions import IsAdminUser
 
 class GestionnaireEditorMixin():
     permission_classes = [IsAuthenticated, IsGestionnaire]
