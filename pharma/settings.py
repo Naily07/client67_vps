@@ -52,7 +52,7 @@ INSTALLED_APPS = [
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES" : [
-        "api.authentication.CsrfExemptBasicAuthentication", 
+        # "api.authentication.CsrfExemptBasicAuthentication", 
         'rest_framework_simplejwt.authentication.JWTAuthentication',               
     ],    
         # 'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
@@ -89,7 +89,7 @@ TEMPLATES = [
         },
     },
 ]
-CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='http://localhost:5173',  cast=lambda v: [s.strip() for s in v.split(",") if s.strip()])
+# CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='http://localhost:5173',  cast=lambda v: [s.strip() for s in v.split(",") if s.strip()])
 CORS_ALLOWED_ORIGINS = [
     origin for origin in config(
         'CORS_ALLOWED_ORIGINS',
