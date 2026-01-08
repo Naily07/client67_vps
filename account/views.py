@@ -7,7 +7,6 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.exceptions import AuthenticationFailed
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.permissions import AllowAny
 from api.serializers import MyTokenObtainPairSerializer, TokenSetPassword
 from rest_framework import status
 from api.mixins import PropriosEditorMixin, ProprioQueryset
@@ -134,8 +133,7 @@ class CreateListAccount(generics.ListCreateAPIView, PropriosEditorMixin, Proprio
 
 from django.contrib.auth import authenticate
 class Login(APIView):
-    authentication_classes = []   # ⛔ PAS d’auth
-    permission_classes = [AllowAny]
+    permission_classes = []
     def post(self, request):
         print(request.data)
         try :
