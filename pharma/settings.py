@@ -52,7 +52,7 @@ INSTALLED_APPS = [
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "stock.authentication.CsrfExemptBasicAuthentication",
+        "rest_framework.authentication.BasicAuthentication", 
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
 }
