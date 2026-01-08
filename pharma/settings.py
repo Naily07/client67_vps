@@ -51,12 +51,13 @@ INSTALLED_APPS = [
 ]
 
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": (
+    "DEFAULT_AUTHENTICATION_CLASSES" : [
         "rest_framework.authentication.BasicAuthentication", 
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
-    ),
+        'rest_framework_simplejwt.authentication.JWTAuthentication',               
+    ],    
+        # 'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.LimitOffsetPagination',
+        # 'PAGE_SIZE': 2
 }
-
 AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
 )
@@ -88,14 +89,8 @@ TEMPLATES = [
         },
     },
 ]
-CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='http://localhost:5173',  cast=lambda v: [s.strip() for s in v.split(",") if s.strip()])
-CORS_ALLOWED_ORIGINS = [
-    origin for origin in config(
-        'CORS_ALLOWED_ORIGINS',
-        default='http://localhost:5173'
-    ).split(',')
-    if origin.strip()
-]
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='',  cast=lambda v: [s.strip() for s in v.split(",") if s.strip()])
+CORS_ALLOWED_ORIGINS = config('CORS_ALLOWED_ORIGINS', default='', cast=lambda v: [s.strip() for s in v.split(',')])
 CORS_ALLOW_METHODS = [
     "DELETE",
     "GET",
@@ -104,7 +99,8 @@ CORS_ALLOW_METHODS = [
     "POST",
     "PUT",
 ]
-CORS_ALLOW_ALL_ORIGINS = DEBUG 
+# Pour le développement, vous pouvez autoriser toutes les origines. En production, il est fortement recommandé de le mettre à False et de spécifier les origines autorisées dans CORS_ALLOWED_ORIGINS.
+CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=True, cast=bool)
 CORS_ALLOW_CREDENTIALS = True
 WSGI_APPLICATION = 'pharma.wsgi.application'
 ASGI_APPLICATION = 'pharma.asgi.application'
