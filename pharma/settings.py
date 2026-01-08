@@ -100,7 +100,13 @@ CORS_ALLOW_METHODS = [
     "PUT",
 ]
 # Pour le développement, vous pouvez autoriser toutes les origines. En production, il est fortement recommandé de le mettre à False et de spécifier les origines autorisées dans CORS_ALLOWED_ORIGINS.
-CORS_ALLOW_ALL_ORIGINS = config('CORS_ALLOW_ALL_ORIGINS', default=True, cast=bool)
+CORS_ALLOWED_ORIGINS = [
+    origin for origin in config(
+        'CORS_ALLOWED_ORIGINS',
+        default='http://localhost:5173'
+    ).split(',')
+    if origin.strip()
+]
 CORS_ALLOW_CREDENTIALS = True
 WSGI_APPLICATION = 'pharma.wsgi.application'
 ASGI_APPLICATION = 'pharma.asgi.application'
