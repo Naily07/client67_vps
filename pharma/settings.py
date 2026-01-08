@@ -88,7 +88,7 @@ TEMPLATES = [
         },
     },
 ]
-# CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='http://localhost:5173',  cast=lambda v: [s.strip() for s in v.split(",") if s.strip()])
+CSRF_TRUSTED_ORIGINS = config('CSRF_TRUSTED_ORIGINS', default='http://localhost:5173',  cast=lambda v: [s.strip() for s in v.split(",") if s.strip()])
 CORS_ALLOWED_ORIGINS = [
     origin for origin in config(
         'CORS_ALLOWED_ORIGINS',
@@ -106,7 +106,7 @@ CORS_ALLOW_METHODS = [
 ]
 # Pour le développement, vous pouvez autoriser toutes les origines. En production, il est fortement recommandé de le mettre à False et de spécifier les origines autorisées dans CORS_ALLOWED_ORIGINS.
 CORS_ALLOW_ALL_ORIGINS = DEBUG
-CORS_ALLOW_CREDENTIALS = False
+CORS_ALLOW_CREDENTIALS = True
 WSGI_APPLICATION = 'pharma.wsgi.application'
 ASGI_APPLICATION = 'pharma.asgi.application'
 
