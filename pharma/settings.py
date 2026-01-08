@@ -62,10 +62,10 @@ AUTHENTICATION_BACKENDS = (
 )
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'corsheaders.middleware.CorsMiddleware',  # TOUJOURS EN HAUT
+    'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
-    # 'django.middleware.csrf.CsrfViewMiddleware',
+    'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -104,30 +104,6 @@ CORS_ALLOW_METHODS = [
     "POST",
     "PUT",
 ]
-# Headers CORS pour CSRF
-CORS_ALLOW_HEADERS = [
-    'accept',
-    'accept-encoding',
-    'authorization',
-    'content-type',
-    'dnt',
-    'origin',
-    'user-agent',
-    'x-csrftoken',  # ← Important
-    'x-requested-with',
-]
-
-# Configuration CSRF
-CSRF_COOKIE_SAMESITE = 'None'  # ← Permet cross-origin
-CSRF_COOKIE_SECURE = False  # Mettez True en production HTTPS
-CSRF_COOKIE_HTTPONLY = False  # ← Permet à JavaScript d'accéder au cookie
-
-# Configuration Session (pour l'admin)
-SESSION_COOKIE_SAMESITE = 'None'
-SESSION_COOKIE_SECURE = False  # Mettez True en production HTTPS
-# Pour le développement, vous pouvez autoriser toutes les origines. En production, il est fortement recommandé de le mettre à False et de spécifier les origines autorisées dans CORS_ALLOWED_ORIGINS.
-CORS_ALLOW_ALL_ORIGINS = DEBUG
-CORS_ALLOW_CREDENTIALS = False
 WSGI_APPLICATION = 'pharma.wsgi.application'
 ASGI_APPLICATION = 'pharma.asgi.application'
 
