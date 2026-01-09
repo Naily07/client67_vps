@@ -295,6 +295,7 @@ class SellBulkProduct(VendeurEditorMixin, generics.ListCreateAPIView):
                 # prix_unit = 0
                 prix_gros = 0
                 # prix_detail = 0
+                modified_products = []
                 
                 for vente in venteList:
                     product_id = vente.get('product_id', None)
@@ -335,6 +336,7 @@ class SellBulkProduct(VendeurEditorMixin, generics.ListCreateAPIView):
                     )
                     
                     produit.save()
+                    modified_products.append(produit)
                     prix_gros += int(qteGrosVente * new_prix_vente) if new_prix_vente else  int(qteGrosVente * produit.prix_gros)
                     
                     venteInstancList.append(venteInstance)
@@ -359,7 +361,7 @@ class SellBulkProduct(VendeurEditorMixin, generics.ListCreateAPIView):
                             "type": "stock_update",
                             "message": {
                                 "event": "product_bulk_updated",
-                                "data": "Success"
+                                "data": ProductSerialiser(modified_products, many=True).data
                             }
                         }
                     )
@@ -403,6 +405,7 @@ class CreateFilAttenteProduct(VendeurEditorMixin, generics.ListCreateAPIView):
                 )
                 filAttente.save()
                 prix_gros = 0
+                modified_products = []
                 
                 for vente in venteList:
                     product_id = vente['product_id']
@@ -443,6 +446,7 @@ class CreateFilAttenteProduct(VendeurEditorMixin, generics.ListCreateAPIView):
                     )
                     
                     produit.save()
+                    modified_products.append(produit)
                     prix_gros += int(qteGrosVente * new_prix_vente) if new_prix_vente else  int(qteGrosVente * produit.prix_gros)
                     
                     venteInstancList.append(venteInstance)
@@ -462,7 +466,7 @@ class CreateFilAttenteProduct(VendeurEditorMixin, generics.ListCreateAPIView):
                             "type": "stock_update",
                             "message": {
                                 "event": "product_bulk_updated",
-                                "data": "Success"
+                                "data": ProductSerialiser(modified_products, many=True).data
                             }
                         }
                     )
@@ -488,7 +492,6 @@ class ValidateFilAttente(VendeurEditorMixin, generics.ListCreateAPIView):
         try:
             filId = kwargs['pk']
             venteList = FilAttenteProduct.finaliser(self, id=filId)
-            print("Les ventes", venteList)
             return Response(data=VenteProductSerializer(venteList, many = True).data, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({"message" : f"Erreur {e}"})

@@ -52,9 +52,9 @@ class userFactureQs(GenericAPIView):
         userType = user.groups.filter(name = 'vendeurs').exists()
         params = self.request.query_params
 
-        if userType:
-            data = {"owner" : user}
-            qs = qs.filter(**data)
+        # if userType:
+        #     data = {"owner" : user}
+        #     qs = qs.filter(**data)
         
         filtreDict = {}
         today = datetime.combine(now().date(), datetime.min.time())
