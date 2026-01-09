@@ -923,6 +923,23 @@ class DeleteFacture(generics.DestroyAPIView):
     queryset = Facture.objects.all()
     serializer_class = FactureSerialiser
 
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        data_id = instance.id
+        response = super().destroy(request, *args, **kwargs)
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "transaction_updates",
+            {
+                "type": "transaction_update",
+                "message": {
+                    "event": "facture_deleted",
+                    "data": {"id": data_id}
+                }
+            }
+        )
+        return response
+
 class DeleteBulkFacture(APIView):
     def post(self, request):
         factureID = request.data.get('ids', [])
@@ -933,6 +950,18 @@ class DeleteBulkFacture(APIView):
                 itemsToDeleted = Facture.objects.filter(id__in = factureID)
                 count = itemsToDeleted.count()
                 itemsToDeleted.delete()
+
+                channel_layer = get_channel_layer()
+                async_to_sync(channel_layer.group_send)(
+                    "transaction_updates",
+                    {
+                        "type": "transaction_update",
+                        "message": {
+                            "event": "facture_bulk_deleted",
+                            "data": {"ids": factureID}
+                        }
+                    }
+                )
                 return Response({'deleted': count}, status=status.HTTP_200_OK)
         except AttributeError as e:
             return Response({'Erreur Attribut': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -976,6 +1005,17 @@ class UpdateFacture(generics.RetrieveUpdateAPIView):
             instance._prefetched_objects_cache = {}
             prefetch_related_objects([instance], *queryset._prefetch_related_lookups)
 
+        channel_layer = get_channel_layer()
+        async_to_sync(channel_layer.group_send)(
+            "transaction_updates",
+            {
+                "type": "transaction_update",
+                "message": {
+                    "event": "facture_updated",
+                    "data": serializer.data
+                }
+            }
+        )
         return Response(serializer.data)
        
 # /*** TROSA  ****/
