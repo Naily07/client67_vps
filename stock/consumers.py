@@ -13,3 +13,16 @@ class StockConsumer(AsyncWebsocketConsumer):
 
     async def stock_update(self, event):
         await self.send(text_data=json.dumps(event["message"]))
+
+class TransactionConsumer(AsyncWebsocketConsumer):
+
+    async def connect(self):
+        # Ajouter l'utilisateur dans le groupe des mises à jour des transactions
+        await self.channel_layer.group_add("transaction_updates", self.channel_name)
+        await self.accept()
+
+    async def disconnect(self, close_code):
+        await self.channel_layer.group_discard("transaction_updates", self.channel_name)
+
+    async def transaction_update(self, event):
+        await self.send(text_data=json.dumps(event["message"]))

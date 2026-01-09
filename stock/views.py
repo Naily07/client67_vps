@@ -265,6 +265,16 @@ class SellProduct(VendeurEditorMixin, generics.ListCreateAPIView):
                     }
                 }
             )
+            async_to_sync(channel_layer.group_send)(
+                "transaction_updates",
+                 {
+                    "type": "transaction_update",
+                    "message": {
+                        "event": "vente_created",
+                        "data": serializer.data
+                    }
+                }
+            )
         #Capture l'erreur de validation
         except ValidationError as e:
             raise e
@@ -368,6 +378,17 @@ class SellBulkProduct(VendeurEditorMixin, generics.ListCreateAPIView):
 
                     factureData = Facture.objects.filter(pk=facture.pk).first()
                     factureDatas = FactureSerialiser(factureData).data
+                    
+                    async_to_sync(channel_layer.group_send)(
+                        "transaction_updates",
+                        {
+                            "type": "transaction_update",
+                            "message": {
+                                "event": "vente_bulk_created",
+                                "data": factureDatas
+                            }
+                        }
+                    )
                     return Response(factureDatas, status=status.HTTP_201_CREATED)
                 else:
                     return Response({'message': "Erreur de création"}, status=status.HTTP_400_BAD_REQUEST)
@@ -475,6 +496,17 @@ class CreateFilAttenteProduct(VendeurEditorMixin, generics.ListCreateAPIView):
                     filAttentesSerialiser = FilAttenteSerialiser(filAttente).data
                     # print("Return", filAttentesSerialiser)
                     
+                    async_to_sync(channel_layer.group_send)(
+                        "transaction_updates",
+                        {
+                            "type": "transaction_update",
+                            "message": {
+                                "event": "fil_attente_created",
+                                "data": filAttentesSerialiser
+                            }
+                        }
+                    )
+                    
                     return Response(filAttentesSerialiser, status=status.HTTP_201_CREATED)
                 else:
                     return Response({'message': "Erreur de création"}, status=status.HTTP_400_BAD_REQUEST)
@@ -492,7 +524,20 @@ class ValidateFilAttente(VendeurEditorMixin, generics.ListCreateAPIView):
         try:
             filId = kwargs['pk']
             venteList = FilAttenteProduct.finaliser(self, id=filId)
-            return Response(data=VenteProductSerializer(venteList, many = True).data, status=status.HTTP_201_CREATED)
+            data = VenteProductSerializer(venteList, many = True).data
+            
+            channel_layer = get_channel_layer()
+            async_to_sync(channel_layer.group_send)(
+                "transaction_updates",
+                {
+                    "type": "transaction_update",
+                    "message": {
+                        "event": "fil_attente_validated",
+                        "data": {"id": filId, "ventes": data}
+                    }
+                }
+            )
+            return Response(data=data, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({"message" : f"Erreur {e}"})
 
@@ -503,6 +548,7 @@ class CancelFilAttente(VendeurEditorMixin, generics.RetrieveDestroyAPIView):
     
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
+        data_id = instance.id
         print("Object to delete", instance)
         listVente = instance.venteproduct_related.all()
         with transaction.atomic():
@@ -526,6 +572,17 @@ class CancelFilAttente(VendeurEditorMixin, generics.RetrieveDestroyAPIView):
                         "message": {
                             "event": "product_bulk_updated",
                             "data": "Success"
+                        }
+                    }
+                )
+            
+                async_to_sync(channel_layer.group_send)(
+                    "transaction_updates",
+                    {
+                        "type": "transaction_update",
+                        "message": {
+                            "event": "fil_attente_deleted",
+                            "data": {"id": data_id}
                         }
                     }
                 )
@@ -658,6 +715,18 @@ class UpdateFilAttente(VendeurEditorMixin, generics.UpdateAPIView):
                 filAttente.prix_total = new_total
                 filAttente.save()
 
+            data = FilAttenteSerialiser(filAttente).data
+            async_to_sync(channel_layer.group_send)(
+                "transaction_updates",
+                {
+                    "type": "transaction_update",
+                    "message": {
+                        "event": "fil_attente_updated",
+                        "data": data
+                    }
+                }
+            )
+
             channel_layer = get_channel_layer()
             async_to_sync(channel_layer.group_send)(
                 "stock_updates",
@@ -670,7 +739,7 @@ class UpdateFilAttente(VendeurEditorMixin, generics.UpdateAPIView):
                 }
             )
 
-            return Response(FilAttenteSerialiser(filAttente).data, status=status.HTTP_205_RESET_CONTENT) 
+            return Response(data, status=status.HTTP_205_RESET_CONTENT) 
         except FilAttenteProduct.DoesNotExist:
             return Response({"message":"Fil d'attente introuvale"})
         except Exception as e:
@@ -690,6 +759,7 @@ class DeleteVente(VendeurEditorMixin, generics.DestroyAPIView):
 
     def destroy(self, request, *args, **kwargs):
         instance : VenteProduct = self.get_object()
+        data_id = instance.id
         try:
             with transaction.atomic():
                 product : Product = instance.product
@@ -728,6 +798,16 @@ class DeleteVente(VendeurEditorMixin, generics.DestroyAPIView):
                 }
             )
 
+            async_to_sync(channel_layer.group_send)(
+                "transaction_updates",
+                {
+                    "type": "transaction_update",
+                    "message": {
+                        "event": "vente_deleted",
+                        "data": {"id": data_id}
+                    }
+                }
+            )
             return Response(status=status.HTTP_204_NO_CONTENT)
         except AttributeError as e:
             return Response({"message": f"Erreur d'attribut{e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -759,6 +839,7 @@ class CancelFacture(VendeurEditorMixin, generics.RetrieveDestroyAPIView):
     
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
+        data_id = instance.id
         print("Object to delete", instance)
         listVente = instance.venteproduct_related.all()
         with transaction.atomic():
@@ -780,6 +861,17 @@ class CancelFacture(VendeurEditorMixin, generics.RetrieveDestroyAPIView):
                         "message": {
                             "event": "product_bulk_updated",
                             "data": "Success"
+                        }
+                    }
+                )
+            
+                async_to_sync(channel_layer.group_send)(
+                    "transaction_updates",
+                    {
+                        "type": "transaction_update",
+                        "message": {
+                            "event": "facture_cancelled",
+                            "data": {"id": data_id}
                         }
                     }
                 )
