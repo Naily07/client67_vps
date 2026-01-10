@@ -136,16 +136,19 @@ class CreateBulkStock(GestionnaireEditorMixin, APIView):
                 AjoutStock.objects.bulk_create(addStockListInstance)
 
                 channel_layer = get_channel_layer()
-                async_to_sync(channel_layer.group_send)(
-                    "stock_updates",
-                     {
-                        "type": "stock_update",
-                        "message": {
-                            "event": "product_bulk_updated",
-                            "data": "Success"
+                try:
+                    async_to_sync(channel_layer.group_send)(
+                        "stock_updates",
+                        {
+                            "type": "stock_update",
+                            "message": {
+                                "event": "product_bulk_updated",
+                                "data": ProductSerialiser(productsToUpdate + productsToCreate, many=True).data
+                            }
                         }
-                    }
-                )
+                    )
+                except Exception as e:
+                    print(f"Erreur WebSocket (Redis): {e}")
 
                 return Response("Success", status=status.HTTP_201_CREATED)
         
@@ -365,30 +368,33 @@ class SellBulkProduct(VendeurEditorMixin, generics.ListCreateAPIView):
                     VenteProduct.objects.bulk_create(venteInstancList)
 
                     channel_layer = get_channel_layer()
-                    async_to_sync(channel_layer.group_send)(
-                        "stock_updates",
-                        {
-                            "type": "stock_update",
-                            "message": {
-                                "event": "product_bulk_updated",
-                                "data": ProductSerialiser(modified_products, many=True).data
+                    try:
+                        async_to_sync(channel_layer.group_send)(
+                            "stock_updates",
+                            {
+                                "type": "stock_update",
+                                "message": {
+                                    "event": "product_bulk_updated",
+                                    "data": ProductSerialiser(modified_products, many=True).data
+                                }
                             }
-                        }
-                    )
+                        )
 
-                    factureData = Facture.objects.filter(pk=facture.pk).first()
-                    factureDatas = FactureSerialiser(factureData).data
-                    
-                    async_to_sync(channel_layer.group_send)(
-                        "transaction_updates",
-                        {
-                            "type": "transaction_update",
-                            "message": {
-                                "event": "vente_bulk_created",
-                                "data": factureDatas
+                        factureData = Facture.objects.filter(pk=facture.pk).first()
+                        factureDatas = FactureSerialiser(factureData).data
+                        
+                        async_to_sync(channel_layer.group_send)(
+                            "transaction_updates",
+                            {
+                                "type": "transaction_update",
+                                "message": {
+                                    "event": "vente_bulk_created",
+                                    "data": factureDatas
+                                }
                             }
-                        }
-                    )
+                        )
+                    except Exception as e:
+                        print(f"Erreur WebSocket (Redis): {e}")
                     return Response(factureDatas, status=status.HTTP_201_CREATED)
                 else:
                     return Response({'message': "Erreur de création"}, status=status.HTTP_400_BAD_REQUEST)
@@ -481,31 +487,34 @@ class CreateFilAttenteProduct(VendeurEditorMixin, generics.ListCreateAPIView):
                     VenteProduct.objects.bulk_create(venteInstancList)
 
                     channel_layer = get_channel_layer()
-                    async_to_sync(channel_layer.group_send)(
-                        "stock_updates",
-                        {
-                            "type": "stock_update",
-                            "message": {
-                                "event": "product_bulk_updated",
-                                "data": ProductSerialiser(modified_products, many=True).data
+                    try:
+                        async_to_sync(channel_layer.group_send)(
+                            "stock_updates",
+                            {
+                                "type": "stock_update",
+                                "message": {
+                                    "event": "product_bulk_updated",
+                                    "data": ProductSerialiser(modified_products, many=True).data
+                                }
                             }
-                        }
-                    )
+                        )
 
-                    # filDatas = FilAttenteProduct.objects.filter(id__iexact = filAttente.id).first()
-                    filAttentesSerialiser = FilAttenteSerialiser(filAttente).data
-                    # print("Return", filAttentesSerialiser)
-                    
-                    async_to_sync(channel_layer.group_send)(
-                        "transaction_updates",
-                        {
-                            "type": "transaction_update",
-                            "message": {
-                                "event": "fil_attente_created",
-                                "data": filAttentesSerialiser
+                        # filDatas = FilAttenteProduct.objects.filter(id__iexact = filAttente.id).first()
+                        filAttentesSerialiser = FilAttenteSerialiser(filAttente).data
+                        # print("Return", filAttentesSerialiser)
+                        
+                        async_to_sync(channel_layer.group_send)(
+                            "transaction_updates",
+                            {
+                                "type": "transaction_update",
+                                "message": {
+                                    "event": "fil_attente_created",
+                                    "data": filAttentesSerialiser
+                                }
                             }
-                        }
-                    )
+                        )
+                    except Exception as e:
+                        print(f"Erreur WebSocket (Redis): {e}")
                     
                     return Response(filAttentesSerialiser, status=status.HTTP_201_CREATED)
                 else:
@@ -527,16 +536,19 @@ class ValidateFilAttente(VendeurEditorMixin, generics.ListCreateAPIView):
             data = VenteProductSerializer(venteList, many = True).data
             
             channel_layer = get_channel_layer()
-            async_to_sync(channel_layer.group_send)(
-                "transaction_updates",
-                {
-                    "type": "transaction_update",
-                    "message": {
-                        "event": "fil_attente_validated",
-                        "data": {"id": filId, "ventes": data}
+            try:
+                async_to_sync(channel_layer.group_send)(
+                    "transaction_updates",
+                    {
+                        "type": "transaction_update",
+                        "message": {
+                            "event": "fil_attente_validated",
+                            "data": {"id": filId, "ventes": data}
+                        }
                     }
-                }
-            )
+                )
+            except Exception as e:
+                print(f"Erreur WebSocket (Redis): {e}")
             return Response(data=data, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({"message" : f"Erreur {e}"})
@@ -565,27 +577,30 @@ class CancelFilAttente(VendeurEditorMixin, generics.RetrieveDestroyAPIView):
                 self.perform_destroy(instance)
 
                 channel_layer = get_channel_layer()
-                async_to_sync(channel_layer.group_send)(
-                    "stock_updates",
+                try:
+                    async_to_sync(channel_layer.group_send)(
+                        "stock_updates",
+                            {
+                            "type": "stock_update",
+                            "message": {
+                                "event": "product_bulk_updated",
+                                "data": ProductSerialiser(productList, many=True).data
+                            }
+                        }
+                    )
+                
+                    async_to_sync(channel_layer.group_send)(
+                        "transaction_updates",
                         {
-                        "type": "stock_update",
-                        "message": {
-                            "event": "product_bulk_updated",
-                            "data": "Success"
+                            "type": "transaction_update",
+                            "message": {
+                                "event": "fil_attente_deleted",
+                                "data": {"id": data_id}
+                            }
                         }
-                    }
-                )
-            
-                async_to_sync(channel_layer.group_send)(
-                    "transaction_updates",
-                    {
-                        "type": "transaction_update",
-                        "message": {
-                            "event": "fil_attente_deleted",
-                            "data": {"id": data_id}
-                        }
-                    }
-                )
+                    )
+                except Exception as e:
+                    print(f"Erreur WebSocket (Redis): {e}")
 
                 return Response(status=status.HTTP_200_OK, data=ProductSerialiser(productList, many = True).data)
             except Product.DoesNotExist:
@@ -612,6 +627,7 @@ class UpdateFilAttente(VendeurEditorMixin, generics.UpdateAPIView):
             newVenteInstanceList = []
             # newPrixGrosVenteTotal = 0
             increment_prix_restant = 0
+            modified_products = []
             with transaction.atomic():
                 for vente in venteList:
                     productId = vente.get('product_id', None)
@@ -652,6 +668,7 @@ class UpdateFilAttente(VendeurEditorMixin, generics.UpdateAPIView):
                         )
                         
                         produit.save()
+                        modified_products.append(produit)
                         
                         newVenteInstanceList.append(newVenteInstance)
 
@@ -691,6 +708,7 @@ class UpdateFilAttente(VendeurEditorMixin, generics.UpdateAPIView):
                                 increment_prix_restant -= int(qte_dec * new_prix_vente if new_prix_vente else product.prix_gros)
                                 product.qte_gros += diff
                         product.save()
+                        modified_products.append(product)
                         venteInstance.prix_vente = int(new_prix_vente) if new_prix_vente else product.prix_gros
                         venteInstance.prix_total = (int(newQteGrosVente * new_prix_vente) if new_prix_vente
                                                     else
@@ -716,28 +734,31 @@ class UpdateFilAttente(VendeurEditorMixin, generics.UpdateAPIView):
                 filAttente.save()
 
             data = FilAttenteSerialiser(filAttente).data
-            async_to_sync(channel_layer.group_send)(
-                "transaction_updates",
-                {
-                    "type": "transaction_update",
-                    "message": {
-                        "event": "fil_attente_updated",
-                        "data": data
-                    }
-                }
-            )
-
-            channel_layer = get_channel_layer()
-            async_to_sync(channel_layer.group_send)(
-                "stock_updates",
+            try:
+                channel_layer = get_channel_layer()
+                async_to_sync(channel_layer.group_send)(
+                    "transaction_updates",
                     {
-                    "type": "stock_update",
-                    "message": {
-                        "event": "product_bulk_updated",
-                        "data": "Success"
+                        "type": "transaction_update",
+                        "message": {
+                            "event": "fil_attente_updated",
+                            "data": data
+                        }
                     }
-                }
-            )
+                )
+
+                async_to_sync(channel_layer.group_send)(
+                    "stock_updates",
+                        {
+                        "type": "stock_update",
+                        "message": {
+                            "event": "product_bulk_updated",
+                            "data": ProductSerialiser(modified_products, many=True).data
+                        }
+                    }
+                )
+            except Exception as e:
+                print(f"Erreur WebSocket (Redis): {e}")
 
             return Response(data, status=status.HTTP_205_RESET_CONTENT) 
         except FilAttenteProduct.DoesNotExist:
@@ -787,27 +808,30 @@ class DeleteVente(VendeurEditorMixin, generics.DestroyAPIView):
                     filAttente.save()
 
             channel_layer = get_channel_layer()
-            async_to_sync(channel_layer.group_send)(
-                "stock_updates",
-                    {
-                    "type": "stock_update",
-                    "message": {
-                        "event": "product_updated",
-                        "data": ProductSerialiser(product).data
+            try:
+                async_to_sync(channel_layer.group_send)(
+                    "stock_updates",
+                        {
+                        "type": "stock_update",
+                        "message": {
+                            "event": "product_updated",
+                            "data": ProductSerialiser(product).data
+                        }
                     }
-                }
-            )
+                )
 
-            async_to_sync(channel_layer.group_send)(
-                "transaction_updates",
-                {
-                    "type": "transaction_update",
-                    "message": {
-                        "event": "vente_deleted",
-                        "data": {"id": data_id}
+                async_to_sync(channel_layer.group_send)(
+                    "transaction_updates",
+                    {
+                        "type": "transaction_update",
+                        "message": {
+                            "event": "vente_deleted",
+                            "data": {"id": data_id}
+                        }
                     }
-                }
-            )
+                )
+            except Exception as e:
+                print(f"Erreur WebSocket (Redis): {e}")
             return Response(status=status.HTTP_204_NO_CONTENT)
         except AttributeError as e:
             return Response({"message": f"Erreur d'attribut{e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -840,43 +864,47 @@ class CancelFacture(VendeurEditorMixin, generics.RetrieveDestroyAPIView):
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         data_id = instance.id
-        print("Object to delete", instance)
         listVente = instance.venteproduct_related.all()
         with transaction.atomic():
             try:
+                productList = []
                 for vente in listVente:
                     product = Product.objects.get(id = vente.product.id)
 
                     qte_gros_cancel = vente.qte_gros_transaction
                     product.qte_gros += qte_gros_cancel
                     product.save()
+                    productList.append(product)
                     
                 self.perform_destroy(instance)
 
                 channel_layer = get_channel_layer()
-                async_to_sync(channel_layer.group_send)(
-                    "stock_updates",
+                try:
+                    async_to_sync(channel_layer.group_send)(
+                        "stock_updates",
+                            {
+                            "type": "stock_update",
+                            "message": {
+                                "event": "product_bulk_updated",
+                                "data": ProductSerialiser(productList, many=True).data
+                            }
+                        }
+                    )
+                
+                    async_to_sync(channel_layer.group_send)(
+                        "transaction_updates",
                         {
-                        "type": "stock_update",
-                        "message": {
-                            "event": "product_bulk_updated",
-                            "data": "Success"
+                            "type": "transaction_update",
+                            "message": {
+                                "event": "facture_cancelled",
+                                "data": {"id": data_id}
+                            }
                         }
-                    }
-                )
-            
-                async_to_sync(channel_layer.group_send)(
-                    "transaction_updates",
-                    {
-                        "type": "transaction_update",
-                        "message": {
-                            "event": "facture_cancelled",
-                            "data": {"id": data_id}
-                        }
-                    }
-                )
+                    )
+                except Exception as e:
+                    print(f"Erreur WebSocket (Redis): {e}")
 
-                return Response(status=status.HTTP_200_OK, data=ProductSerialiser(product).data)
+                return Response(status=status.HTTP_200_OK, data=ProductSerialiser(productList, many=True).data)
             except Product.DoesNotExist:
                 return Response({"message": "Produit introuvable"}, status=status.HTTP_404_NOT_FOUND)
             except Exception as e:
