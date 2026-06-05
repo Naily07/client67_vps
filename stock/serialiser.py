@@ -162,23 +162,40 @@ class VenteProductSerializer(serializers.ModelSerializer):
             return produit.marque.nom
         return ""
     
-
+class CustomerSerialiser(serializers.ModelSerializer):
+    nom = serializers.CharField(max_length=50, required = True)
+    reglements = serializers.SerializerMethodField(read_only = True)
+    class Meta:
+        model = Customer
+        fields = ['pk', 'nom', "trosa", "avance", 'reglements']
+    
+    def get_reglements(self, obj):
+        client = obj
+        reglements = client.reglements.all().order_by('date_paiement')
+        return ReglementSerializer(reglements, many=True).data    
+    
 class ReglementSerializer(serializers.ModelSerializer):
+    date_paiement = serializers.SerializerMethodField(read_only = True)
+
     class Meta:
         model = Reglement
         fields = ['id', 'date_paiement', 'montant', 'moyen_paiement']
-
+    
+    def get_date_paiement(self, obj):
+        # print("Formate", obj.formated_date)
+        return obj.formated_date
 class FactureSerialiser(serializers.ModelSerializer):
     prix_total = serializers.DecimalField(max_digits=10, decimal_places=0)
     prix_restant = serializers.DecimalField(max_digits=10, decimal_places=0)
     ventes = serializers.SerializerMethodField(read_only = True)
-    client = serializers.CharField()
+    client = serializers.CharField(read_only = True)
+    customer = serializers.SerializerMethodField(read_only = True)
     date = serializers.SerializerMethodField(read_only = True)
     owner = serializers.SerializerMethodField(read_only = True)
     reglements = serializers.SerializerMethodField(read_only = True)
     class Meta:
         model = Facture
-        fields = ['pk', 'prix_total', 'prix_restant', 'ventes', 'client', 'date', 'owner', 'reglements']
+        fields = ['pk', 'prix_total', 'prix_restant', 'ventes', 'customer', 'client', 'date', 'owner', 'reglements']
 
     def get_ventes(self, obj):
         facture = obj
@@ -199,9 +216,14 @@ class FactureSerialiser(serializers.ModelSerializer):
         reglements = facture.reglements.all()
         return ReglementSerializer(reglements, many=True).data
     
+    def get_customer(self, obj):
+        customer = obj.customer   
+        return customer.nom
+    
 class FilAttenteSerialiser(serializers.ModelSerializer):
     ventes = serializers.SerializerMethodField(read_only = True)
-    client = serializers.CharField()
+    client = serializers.CharField(read_only = True)
+    customer = serializers.SerializerMethodField(read_only = True)
     date = serializers.SerializerMethodField(read_only = True)
     owner = serializers.SerializerMethodField(read_only = True)
     class Meta:
@@ -225,6 +247,10 @@ class FilAttenteSerialiser(serializers.ModelSerializer):
     def get_date(self, obj):
         # print("Formate", obj.formated_date)
         return obj.formated_date  
+    
+    def get_customer(self, obj):
+        customer = obj.customer   
+        return customer.nom
     
 class TrosaSerialiser(serializers.ModelSerializer):
     owner = serializers.CharField(required = True)

@@ -2,10 +2,10 @@ import asyncio
 import websockets
 import json
 
-JWT_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzY3OTM0NjI4LCJpYXQiOjE3Njc3NjE4MjgsImp0aSI6IjU5NWJhNmZlNDAxMjQxZmM4MGRjMDNmZjZhZTM4ZTkxIiwidXNlcl9pZCI6MiwidXNlcm5hbWUiOiJ0b2pvenIiLCJhY2NvdW50X3R5cGUiOiJ2ZW5kZXVycyJ9.q-JQA_mpFpOwoYwdFsh1ywUERA68oN9fE03NNb2dzlc"
+JWT_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzgwODU3MzAxLCJpYXQiOjE3ODA2ODQ1MDEsImp0aSI6IjQwMDIyMTJjMmMwNTQ2ZTlhZjI3NWU1NmI5Y2EyYTRlIiwidXNlcl9pZCI6MywidXNlcm5hbWUiOiJ2ZW5kZXVyMSIsImFjY291bnRfdHlwZSI6InZlbmRldXJzIn0.re5SrgArtlA2FRM8UYv6IDYN3Kpdq-u2vyHh1eHds_s"
 
 async def test():
-    url = f"wss://client67-vps.digievo.mg/ws/stock/?token={JWT_TOKEN}"
+    url = f"ws://127.0.0.1:7500/ws/stock/?token={JWT_TOKEN}"
     async with websockets.connect(url) as ws:
         print("Connecté !")
         while True:

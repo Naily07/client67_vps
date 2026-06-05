@@ -20,6 +20,8 @@ from rest_framework.pagination import PageNumberPagination
 
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from decimal import Decimal, InvalidOperation
+
 # Create your views here.
 class CreateDetail(generics.ListCreateAPIView): 
     queryset = Detail.objects.all()
@@ -292,22 +294,22 @@ class SellBulkProduct(VendeurEditorMixin, generics.ListCreateAPIView):
         datas = request.data
         user = request.user
             
-        client = datas.get('client', "")
+        customer = datas.get('customer', "")
         prixRestant = datas.get('prix_restant', 0)
                     
         venteList = datas.get("ventes", [])
         venteInstancList = []
-        
+        factureDatas = None
         try:
             with transaction.atomic():
+                customer_object, created = Customer.objects.get_or_create(nom=customer)
                 facture = Facture(
                     prix_total=0,
                     prix_restant=0,
-                    owner=user
+                    owner=user,
+                    customer=customer_object
                 )
-                # prix_unit = 0
                 prix_gros = 0
-                # prix_detail = 0
                 modified_products = []
                 
                 for vente in venteList:
@@ -320,50 +322,77 @@ class SellBulkProduct(VendeurEditorMixin, generics.ListCreateAPIView):
 
                     qteGrosVente = vente['qte_gros_transaction']
                     
-                    if qteGrosVente < 0 :
+                    if qteGrosVente < 0:
                         return Response({"message": "Erreur de quantité de vente"}, status=status.HTTP_400_BAD_REQUEST)
                     
                     qteGrosStock = produit.qte_gros
-                    #CONVERSION
-                    #Condition
+                    qteGrosStockAvant = qteGrosStock
+
                     if qteGrosStock >= qteGrosVente:
                         qteGrosStock -= qteGrosVente
                     else:
                         return Response({"message": 'La quantité est invalide ou dépasse le stock'}, status=status.HTTP_400_BAD_REQUEST)
                     
-                    # produit.qte_unit = qteUnitStock
                     produit.qte_gros = qteGrosStock
-                    # produit.qte_detail = qteDetailStock
                     
                     venteInstance = VenteProduct(
                         product=produit,
-                        # qte_unit_transaction=qteUnitVente,
                         qte_gros_transaction=qteGrosVente,
-                        prix_vente = new_prix_vente if new_prix_vente else produit.prix_gros,
-                        # qte_detail_transaction=qteDetailVente,
+                        qte_avant=qteGrosStockAvant,
+                        qte_apres=qteGrosStock,
+                        prix_vente=new_prix_vente if new_prix_vente else produit.prix_gros,
                         type_transaction="Vente",
-                         prix_total=(int(qteGrosVente * new_prix_vente) if new_prix_vente
-                                    else
-                                        int(qteGrosVente * produit.prix_gros)),
+                        prix_total=(int(qteGrosVente * new_prix_vente) if new_prix_vente
+                                    else int(qteGrosVente * produit.prix_gros)),
                         facture=facture,
                     )
                     
                     produit.save()
                     modified_products.append(produit)
-                    prix_gros += int(qteGrosVente * new_prix_vente) if new_prix_vente else  int(qteGrosVente * produit.prix_gros)
+                    prix_gros += int(qteGrosVente * new_prix_vente) if new_prix_vente else int(qteGrosVente * produit.prix_gros)
                     
                     venteInstancList.append(venteInstance)
-                
-                facture.prix_restant = prixRestant
-                facture.prix_total =  prix_gros 
-                facture.client = client
+
                 facture.save()
-                Reglement.objects.create(
-                    content_type=ContentType.objects.get_for_model(facture),
-                    object_id=facture.id,
-                    montant= facture.prix_total - prixRestant
-                )
-                
+                facture.prix_total = prix_gros
+
+                prixRestant = Decimal(str(prixRestant))
+                customer_avance = Decimal(str(customer_object.avance or 0))
+
+                # Utilisation de l'avance du customer
+                if customer_avance > 0 and prixRestant > 0:
+                    used = min(customer_avance, prixRestant)
+                    prixRestant -= used
+                    customer_object.avance = customer_avance - used
+                    Reglement.objects.create(
+                        content_type=ContentType.objects.get_for_model(facture),
+                        object_id=facture.id,
+                        montant=used,
+                        type_r="payement_avance",
+                    )
+                    Reglement.objects.create(
+                        content_type=ContentType.objects.get_for_model(Customer),
+                        object_id=customer_object.id,
+                        montant=used,
+                        type_r="payement_avance",
+                        remarque=f"Utilisation avance facture n°{facture.num}"
+                    )
+
+                # Si reste à payer, enregistrer et ajuster la trosa
+                if prixRestant > 0:
+                    Reglement.objects.create(
+                        content_type=ContentType.objects.get_for_model(Customer),
+                        object_id=customer_object.id,
+                        montant=prixRestant,
+                        type_r="ajout",
+                        remarque=f"facture n°{facture.num}"
+                    )
+                    customer_object.trosa = (customer_object.trosa or 0) + prixRestant
+
+                facture.prix_restant = prixRestant
+                facture.save()
+                customer_object.save()
+
                 if len(venteInstancList) > 0:
                     VenteProduct.objects.bulk_create(venteInstancList)
 
@@ -395,14 +424,15 @@ class SellBulkProduct(VendeurEditorMixin, generics.ListCreateAPIView):
                         )
                     except Exception as e:
                         print(f"Erreur WebSocket (Redis): {e}")
+
                     return Response(factureDatas, status=status.HTTP_201_CREATED)
                 else:
                     return Response({'message': "Erreur de création"}, status=status.HTTP_400_BAD_REQUEST)
+
         except AttributeError as e:
             return Response({"message": f"Erreur d'attribut{e}"}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"message": f"Erreur: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
 
 class CreateFilAttenteProduct(VendeurEditorMixin, generics.ListCreateAPIView):
     queryset = VenteProduct.objects.all()
@@ -417,18 +447,19 @@ class CreateFilAttenteProduct(VendeurEditorMixin, generics.ListCreateAPIView):
         datas = request.data
         user = request.user
             
-        client = datas.get('client', "")
+        customer = datas.get('customer', "")
         prixRestant = datas.get('prix_restant', 0)
-        print("RESTANT", prixRestant)
         venteList = datas.get("ventes", [])
         venteInstancList = []
         
         try:
             with transaction.atomic():
+                customer_object, created = Customer.objects.get_or_create(nom=customer)
                 filAttente = FilAttenteProduct(
                     prix_total=0,
                     prix_restant=0,
-                    owner=user
+                    owner=user,
+                    customer=customer_object
                 )
                 filAttente.save()
                 prix_gros = 0
@@ -444,15 +475,13 @@ class CreateFilAttenteProduct(VendeurEditorMixin, generics.ListCreateAPIView):
                     
                     qteGrosVente = vente['qte_gros_transaction']
                     
-                    if qteGrosVente < 0 :
+                    if qteGrosVente < 0:
                         return Response({"message": "Erreur de quantité de vente"}, status=status.HTTP_400_BAD_REQUEST)
                     
                     qteGrosStock = produit.qte_gros
-                    #CONVERSION
-                    
-                    #Condition
+                    qteGrosStockAvant = qteGrosStock
+
                     if qteGrosStock >= qteGrosVente:
-                        
                         if qteGrosStock < qteGrosVente:
                             return Response({"message": "Stock insuffisant"}, status=status.HTTP_400_BAD_REQUEST)
                         qteGrosStock -= qteGrosVente
@@ -464,27 +493,28 @@ class CreateFilAttenteProduct(VendeurEditorMixin, generics.ListCreateAPIView):
                     venteInstance = VenteProduct(
                         product=produit,
                         qte_gros_transaction=qteGrosVente,
-                        prix_vente = new_prix_vente if new_prix_vente else produit.prix_gros,
+                        qte_avant=qteGrosStockAvant,
+                        qte_apres=qteGrosStock,
+                        prix_vente=new_prix_vente if new_prix_vente else produit.prix_gros,
                         type_transaction="Attente",
                         prix_total=(int(qteGrosVente * new_prix_vente) if new_prix_vente
-                                    else
-                                        int(qteGrosVente * produit.prix_gros)),
+                                    else int(qteGrosVente * produit.prix_gros)),
                         fil_attente=filAttente,
                     )
                     
                     produit.save()
                     modified_products.append(produit)
-                    prix_gros += int(qteGrosVente * new_prix_vente) if new_prix_vente else  int(qteGrosVente * produit.prix_gros)
+                    prix_gros += int(qteGrosVente * new_prix_vente) if new_prix_vente else int(qteGrosVente * produit.prix_gros)
                     
                     venteInstancList.append(venteInstance)
                 
                 filAttente.prix_restant = prixRestant
-                filAttente.prix_total =  prix_gros
-                filAttente.client = client
+                filAttente.prix_total = prix_gros
                 filAttente.save()
                 
                 if len(venteInstancList) > 0:
                     VenteProduct.objects.bulk_create(venteInstancList)
+                    filAttentesSerialiser = FilAttenteSerialiser(filAttente).data
 
                     channel_layer = get_channel_layer()
                     try:
@@ -498,10 +528,6 @@ class CreateFilAttenteProduct(VendeurEditorMixin, generics.ListCreateAPIView):
                                 }
                             }
                         )
-
-                        # filDatas = FilAttenteProduct.objects.filter(id__iexact = filAttente.id).first()
-                        filAttentesSerialiser = FilAttenteSerialiser(filAttente).data
-                        # print("Return", filAttentesSerialiser)
                         
                         async_to_sync(channel_layer.group_send)(
                             "transaction_updates",
@@ -561,7 +587,6 @@ class CancelFilAttente(VendeurEditorMixin, generics.RetrieveDestroyAPIView):
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         data_id = instance.id
-        print("Object to delete", instance)
         listVente = instance.venteproduct_related.all()
         with transaction.atomic():
             try:
@@ -995,6 +1020,7 @@ class DeleteBulkFacture(APIView):
             return Response({'Erreur Attribut': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 class UpdateFacture(generics.RetrieveUpdateAPIView):
     queryset = Facture.objects.all()
     serializer_class = FactureSerialiser
@@ -1004,35 +1030,35 @@ class UpdateFacture(generics.RetrieveUpdateAPIView):
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
         old_prix_restant = instance.prix_restant
-
-        with transaction.atomic():  # Tout est dans une transaction
-            # Valider les données avant de les appliquer
+        with transaction.atomic():
             serializer = self.get_serializer(instance, data=request.data, partial=partial)
             serializer.is_valid(raise_exception=True)
-
-            # Appliquer la mise à jour
             self.perform_update(serializer)
-
-            # Recharger les données mises à jour
             instance.refresh_from_db()
             new_prix_restant = instance.prix_restant
-            print("Facture", new_prix_restant)
-            new_prix_restant = instance.prix_restant
             montant_regle = old_prix_restant - new_prix_restant
-            print("montant regele", montant_regle)
-            if montant_regle > 0:
-                # Création du règlement (rollback automatique si erreur ici)
+            if montant_regle < 0:
+                montant_regle = 0
+            customer_obj = instance.customer
+            if montant_regle > 0 and customer_obj:
                 Reglement.objects.create(
                     content_type=ContentType.objects.get_for_model(instance),
                     object_id=instance.id,
                     montant=montant_regle
                 )
-
+                customer_obj.trosa = (customer_obj.trosa or 0) - montant_regle
+                customer_obj.save()
+                Reglement.objects.create(
+                    content_type=ContentType.objects.get_for_model(Customer),
+                    object_id=customer_obj.id,
+                    montant=montant_regle,
+                    type_r="paiement",
+                    remarque=f"facture n°{instance.num} "
+                )
         queryset = self.filter_queryset(self.get_queryset())
         if queryset._prefetch_related_lookups:
             instance._prefetched_objects_cache = {}
             prefetch_related_objects([instance], *queryset._prefetch_related_lookups)
-
         channel_layer = get_channel_layer()
         async_to_sync(channel_layer.group_send)(
             "transaction_updates",
@@ -1044,8 +1070,7 @@ class UpdateFacture(generics.RetrieveUpdateAPIView):
                 }
             }
         )
-        return Response(serializer.data)
-       
+        return Response(serializer.data)    
 # /*** TROSA  ****/
 class CreateTrosa(generics.CreateAPIView):
     queryset = Trosa.objects.all()
@@ -1098,10 +1123,144 @@ class UpdateTrosa(generics.RetrieveUpdateAPIView):
 
         return Response(serializer.data)
  
-# class ListFournisseur(generics.ListAPIView):
-#     queryset = Fournisseur.objects.all()
-#     serializer_class = FournisseurSerialiser
 
-# class UpdateFournisserur(generics.UpdateAPIView):
-#     queryset = Fournisseur.objects.all()
-#     serializer_class = FournisseurSerialiser
+class ListCustomer(generics.ListAPIView):
+    queryset = Customer.objects.all()
+    serializer_class = CustomerSerialiser
+
+class DeleteCustomer(GestionnaireEditorMixin, generics.RetrieveDestroyAPIView):
+    serializer_class = CustomerSerialiser
+    lookup_field = 'pk'
+
+    def destroy(self, request, *args, **kwargs):
+        customer = self.get_object()
+        try:
+            with transaction.atomic():
+                # Refuser la suppression si des factures ont encore un restant > 0
+                has_unpaid = Facture.objects.filter(Customer=customer, prix_restant__gt=0).exists()
+                if has_unpaid:
+                    return Response(
+                        {"message": "Le Customer a des factures impayées. Suppression impossible."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # Supprimer les réglements liés aux factures du Customer
+                factures_qs = Facture.objects.filter(Customer=customer)
+                facture_ids = list(factures_qs.values_list('id', flat=True))
+                if facture_ids:
+                    Reglement.objects.filter(
+                        content_type=ContentType.objects.get_for_model(Facture),
+                        object_id__in=facture_ids
+                    ).delete()
+
+                # Supprimer les factures liées au Customer
+                factures_qs.delete()
+
+                # Supprimer les réglements liés directement au Customer (historique trosa, paiements, ...)
+                Reglement.objects.filter(
+                    content_type=ContentType.objects.get_for_model(Customer),
+                    object_id=customer.id
+                ).delete()
+
+                # Enfin supprimer le customer
+                self.perform_destroy(customer)
+
+                return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            return Response({"message": f"Erreur serveur: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    queryset = Customer.objects.all()
+
+class ListFactureCustomer(generics.ListAPIView):
+    serializer_class = FactureSerialiser
+
+    def get_queryset(self):
+        customer_id = self.kwargs.get('pk')
+        return Facture.objects.filter(Customer = customer_id)
+    
+class UpdateCustomerTrosa(generics.UpdateAPIView):
+    queryset = Customer.objects.all()
+    serializer_class = CustomerSerialiser
+    lookup_field = 'pk'
+
+    def patch(self, request, *args, **kwargs):
+        montant = request.data.get('montant')
+        if montant is None:
+            return Response({"message": "Le montant est requis"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            montant = Decimal(str(montant))
+        except (InvalidOperation, ValueError):
+            return Response({"message": "Montant invalide"}, status=status.HTTP_400_BAD_REQUEST)
+        if montant <= 0:
+            return Response({"message": "Le montant doit être positif"}, status=status.HTTP_400_BAD_REQUEST)
+
+        customer = self.get_object()
+
+        try:
+            with transaction.atomic():
+                factures = Facture.objects.filter(Customer=customer, prix_restant__gt=0).order_by('date')
+                restant = montant
+                factures_modifiees = []
+
+                for facture in factures:
+                    # arreter si le montant est 0
+                    if restant <= 0:
+                        break
+                    # convertir en Decimal pour sécurité
+                    prix_restant = Decimal(str(facture.prix_restant))
+                    
+                    to_paye = min(prix_restant, restant)
+
+                    if to_paye <= 0:
+                        continue
+
+                    facture.prix_restant = float(prix_restant - to_paye)
+                    facture.save()
+
+                    Reglement.objects.create(
+                        content_type=ContentType.objects.get_for_model(facture),
+                        object_id=facture.id,
+                        montant=(to_paye)
+                    )
+
+                    restant -= to_paye
+                    factures_modifiees.append(facture)
+
+                montant_applique = (montant - restant)
+                if restant > 0:
+                    customer.avance = (customer.avance or Decimal("0")) + restant
+                if montant_applique > 0:
+                    # Mettre à jour la trosa du customer
+                    customer.trosa = (customer.trosa or 0) - montant_applique
+                    customer.save()
+                    # Enregistrer un reglement au niveau client (type_r optionnel)
+
+                    n_factures = len(factures_modifiees)
+                    nums = ", ".join(str(getattr(f, "num", f.id)) for f in factures_modifiees) if n_factures > 0 else ""
+                    remarque = ""
+                    if n_factures > 0:
+                        remarque = f"{n_factures} facture(s): {nums}"
+                    else:
+                        remarque =  f"Règlement de {montant_applique}"
+                    # remarque = (f"Règlement de {montant_applique} pour {n_factures} facture(s): {nums}"
+                    #             if n_factures > 0 else f"Règlement de {montant_applique}")
+
+                    Reglement.objects.create(
+                        content_type=ContentType.objects.get_for_model(Customer),
+                        object_id=customer.id,
+                        montant=montant_applique,
+                        type_r="paiement",
+                        remarque=remarque
+                    )
+
+                return Response({
+                    "customer": CustomerSerialiser(customer).data,
+                    "factures": FactureSerialiser(factures_modifiees, many=True).data,
+                    "montant_recu": float(montant),
+                    "montant_applique": montant_applique,
+                    "montant_restant": float(restant)
+                }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response({"message": f"Erreur serveur: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        

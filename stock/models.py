@@ -15,14 +15,28 @@ class Reglement(models.Model):
     content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
     object_id = models.PositiveIntegerField()
     cible = GenericForeignKey('content_type', 'object_id')  # Peut pointer vers une Facture ou une Trosa
-
+    
+    remarque = models.TextField(blank=True, null=True)
     date_paiement = models.DateTimeField(auto_now_add=True)
     montant = models.DecimalField(max_digits=10, decimal_places=0)
     moyen_paiement = models.CharField(max_length=50, blank=True, default="Espèces")
-    # note = models.TextField(blank=True, null=True)python
+    type_r = models.CharField(max_length=50, blank=True, default="paiement")# note = models.TextField(blank=True, null=True)python
 
     def __str__(self):
         return f"Règlement de {self.montant} pour {self.cible}"
+    
+    @property
+    def formated_date(self):
+        timezone = pytz.timezone('Etc/GMT-3')
+        date =  localtime(self.date_paiement, timezone) # localtime change the timezone ou la fuseau horaire avec pytz
+        formated = date.strftime("%d/%m/%Y, %H:%M") # Formate la date en string et format
+        return formated
+
+class Customer(models.Model):
+    nom = models.TextField(max_length=50)
+    avance = models.DecimalField(max_digits=10, decimal_places=0, default=0)  
+    reglements = GenericRelation(Reglement)  
+    trosa = models.DecimalField(max_digits=10, decimal_places=0, default=0)  
 
 class Trosa(models.Model):
     owner = models.CharField(max_length=25)
@@ -38,6 +52,8 @@ class Facture(models.Model):
     prix_total = models.DecimalField(max_digits=10, decimal_places=0)
     prix_restant = models.DecimalField(max_digits=10, decimal_places=0)
     client = models.CharField(max_length=20, default="", blank=True)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="%(class)s_related", null=True)    
+    num = models.CharField(max_length=6, unique=True, blank=True)
     owner = models.ForeignKey(CustomUser, default=1, on_delete=models.CASCADE, related_name="%(class)s_related")
     reglements = GenericRelation(Reglement)
 
@@ -50,6 +66,16 @@ class Facture(models.Model):
         date =  localtime(self.date, timezone) # localtime change the timezone ou la fuseau horaire avec pytz
         formated = date.strftime("%d/%m/%Y, %H:%M") # Formate la date en string et format
         return formated
+
+    def generate_num_unique(self):
+        with transaction.atomic():
+            # Verrouille la dernière facture créée pour éviter les courses (best-effort)
+            last = Facture.objects.select_for_update().order_by('-id').first()
+            if last and last.num and last.num.isdigit():
+                next_int = int(last.num) + 1
+            else:
+                next_int = 1
+            return f"{next_int:06d}"
 
 class Marque(models.Model):
     nom = models.CharField(max_length=50, blank=True)
@@ -82,6 +108,13 @@ class Product(models.Model):
         return f"{self.detail.designation} + {self.qte_gros}"
 
 class Transaction(models.Model):
+    TYPE_CHOICES = [
+        ("ajout", "Ajout de stock"),
+        ("maj", "Mise à jour manuelle"),
+        ("vente", "Vente"),
+    ]
+    qte_avant = models.IntegerField(default=0, null=True, blank=True)
+    qte_apres = models.IntegerField(default=0, null=True, blank=True)
     qte_gros_transaction = models.IntegerField(default=0, null=True)
     type_transaction = models.TextField(max_length=25)
     prix_total = models.DecimalField(max_digits=10, decimal_places=0, default=0)
@@ -104,6 +137,7 @@ class FilAttenteProduct(models.Model):
     prix_total = models.DecimalField(max_digits=10, decimal_places=0)
     prix_restant = models.DecimalField(max_digits=10, decimal_places=0)
     client = models.CharField(max_length=20, default="", blank=True)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="%(class)s_related", null=True)    
     owner = models.ForeignKey(CustomUser, default=1, on_delete=models.CASCADE, related_name="%(class)s_related")
 
     def __str__(self) -> str:
