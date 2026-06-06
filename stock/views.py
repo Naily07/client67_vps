@@ -1137,7 +1137,7 @@ class DeleteCustomer(GestionnaireEditorMixin, generics.RetrieveDestroyAPIView):
         try:
             with transaction.atomic():
                 # Refuser la suppression si des factures ont encore un restant > 0
-                has_unpaid = Facture.objects.filter(Customer=customer, prix_restant__gt=0).exists()
+                has_unpaid = Facture.objects.filter(customer=customer, prix_restant__gt=0).exists()
                 if has_unpaid:
                     return Response(
                         {"message": "Le Customer a des factures impayées. Suppression impossible."},
@@ -1145,7 +1145,7 @@ class DeleteCustomer(GestionnaireEditorMixin, generics.RetrieveDestroyAPIView):
                     )
 
                 # Supprimer les réglements liés aux factures du Customer
-                factures_qs = Facture.objects.filter(Customer=customer)
+                factures_qs = Facture.objects.filter(customer=customer)
                 facture_ids = list(factures_qs.values_list('id', flat=True))
                 if facture_ids:
                     Reglement.objects.filter(
@@ -1175,7 +1175,7 @@ class ListFactureCustomer(generics.ListAPIView):
 
     def get_queryset(self):
         customer_id = self.kwargs.get('pk')
-        return Facture.objects.filter(Customer = customer_id)
+        return Facture.objects.filter(customer = customer_id)
     
 class UpdateCustomerTrosa(generics.UpdateAPIView):
     queryset = Customer.objects.all()
@@ -1198,7 +1198,7 @@ class UpdateCustomerTrosa(generics.UpdateAPIView):
 
         try:
             with transaction.atomic():
-                factures = Facture.objects.filter(Customer=customer, prix_restant__gt=0).order_by('date')
+                factures = Facture.objects.filter(customer=customer, prix_restant__gt=0).order_by('date')
                 restant = montant
                 factures_modifiees = []
 
