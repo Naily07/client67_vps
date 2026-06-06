@@ -60,6 +60,11 @@ class Facture(models.Model):
     def __str__(self) -> str:
         return str(self.id)
     
+    def save(self, *args, **kwargs):
+        if not self.pk:  # Si l'objet n'a pas encore été enregistré (création)
+            self.num = self.generate_num_unique()
+        super(Facture, self).save(*args, **kwargs)
+        
     @property
     def formated_date(self):
         timezone = pytz.timezone('Etc/GMT-3')

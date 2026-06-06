@@ -179,7 +179,7 @@ class ReglementSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Reglement
-        fields = ['id', 'date_paiement', 'montant', 'moyen_paiement']
+        fields = ['id', 'date_paiement', 'montant', 'moyen_paiement', 'type_r', 'remarque']
     
     def get_date_paiement(self, obj):
         # print("Formate", obj.formated_date)
@@ -218,7 +218,7 @@ class FactureSerialiser(serializers.ModelSerializer):
     
     def get_customer(self, obj):
         customer = obj.customer   
-        return customer.nom
+        return customer.nom if customer else ""
     
 class FilAttenteSerialiser(serializers.ModelSerializer):
     ventes = serializers.SerializerMethodField(read_only = True)
@@ -250,7 +250,7 @@ class FilAttenteSerialiser(serializers.ModelSerializer):
     
     def get_customer(self, obj):
         customer = obj.customer   
-        return customer.nom
+        return customer.nom if customer else ""
     
 class TrosaSerialiser(serializers.ModelSerializer):
     owner = serializers.CharField(required = True)
