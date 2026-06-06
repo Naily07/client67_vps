@@ -157,36 +157,70 @@ class FilAttenteProduct(models.Model):
     
     @transaction.atomic
     def finaliser(self, id):
-        if(id):
-            filAttente = FilAttenteProduct.objects.get(id=id)
-            allVenteProduct = filAttente.venteproduct_related.all()
-            fil_attente_ct = ContentType.objects.get_for_model(FilAttenteProduct)
-            regelements = Reglement.objects.filter(object_id = id, content_type=fil_attente_ct,)
-
-            facture = Facture(
-                prix_total = filAttente.prix_total,
-                prix_restant = filAttente.prix_restant,
-                client = filAttente.client,
-                owner = filAttente.owner
-            )
-            facture.save()
-            for reglement in regelements:
-                Reglement.objects.create(
-                    content_type=ContentType.objects.get_for_model(facture),
-                    object_id=facture.id,
-                    montant=reglement.montant
+        try:
+            if id:
+                filAttente = FilAttenteProduct.objects.get(id=id)
+                allVenteProduct: list[VenteProduct] = filAttente.venteproduct_related.all()
+                fil_attente_ct = ContentType.objects.get_for_model(FilAttenteProduct)
+                regelements = Reglement.objects.filter(object_id=id, content_type=fil_attente_ct)
+                customer_obj = filAttente.customer
+                facture = Facture(
+                    prix_total=filAttente.prix_total,
+                    prix_restant=filAttente.prix_restant,
+                    customer=customer_obj,
+                    owner=filAttente.owner
                 )
-                reglement.delete()
-            for vente in allVenteProduct:
-                vente.fil_attente = None
-                vente.facture = facture
-                vente.type_transaction = "vente"
-                vente.save()
-            filAttente.delete()
-            return allVenteProduct
-        else:
-            raise ValueError("Fil d'attente inexistant")
+                customer_avance = customer_obj.avance
+                prix_restant = filAttente.prix_restant
+                facture.save()
 
+                # Transfert des règlements du fil d'attente vers la facture
+                for reglement in regelements:
+                    Reglement.objects.create(
+                        content_type=ContentType.objects.get_for_model(facture),
+                        object_id=facture.id,
+                        montant=reglement.montant
+                    )
+                    reglement.delete()
+
+                if prix_restant > 0 and customer_avance > 0:
+                    used = min(customer_avance, prix_restant)
+                    prix_restant -= used
+                    customer_obj.avance = customer_avance - used
+                    Reglement.objects.create(
+                        content_type=ContentType.objects.get_for_model(facture),
+                        object_id=facture.id,
+                        montant=used,
+                        type_r="payement_avance",
+                    )
+
+                if prix_restant > 0:
+                    Reglement.objects.create(
+                        content_type=ContentType.objects.get_for_model(customer_obj),
+                        object_id=customer_obj.id,
+                        montant=prix_restant,
+                        type_r="ajout",
+                        remarque=f"facture n°{facture.num} "
+                    )
+                    customer_obj.trosa = (customer_obj.trosa or 0) + prix_restant
+
+                customer_obj.save()
+                facture.prix_restant = prix_restant
+                facture.save()
+
+                for vente in allVenteProduct:
+                    vente.fil_attente = None
+                    vente.facture = facture
+                    vente.type_transaction = "vente"
+                    vente.save()
+
+                filAttente.delete()
+                return allVenteProduct
+            else:
+                raise ValueError("Fil d'attente inexistant")
+        except Exception as e:
+            raise e
+        
 class VenteProduct(Transaction):
     prix_vente = models.DecimalField(max_digits=10, decimal_places=0, blank=True, default=0)
     facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name="%(class)s_related", null=True)
