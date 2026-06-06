@@ -52,7 +52,7 @@ class Facture(models.Model):
     prix_total = models.DecimalField(max_digits=10, decimal_places=0)
     prix_restant = models.DecimalField(max_digits=10, decimal_places=0)
     client = models.CharField(max_length=20, default="", blank=True)
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="%(class)s_related", null=True)    
+    customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, related_name="%(class)s_related", null=True)    
     num = models.CharField(max_length=6, unique=True, blank=True)
     owner = models.ForeignKey(CustomUser, default=1, on_delete=models.CASCADE, related_name="%(class)s_related")
     reglements = GenericRelation(Reglement)
@@ -137,7 +137,7 @@ class FilAttenteProduct(models.Model):
     prix_total = models.DecimalField(max_digits=10, decimal_places=0)
     prix_restant = models.DecimalField(max_digits=10, decimal_places=0)
     client = models.CharField(max_length=20, default="", blank=True)
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name="%(class)s_related", null=True)    
+    customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, related_name="%(class)s_related", null=True)    
     owner = models.ForeignKey(CustomUser, default=1, on_delete=models.CASCADE, related_name="%(class)s_related")
 
     def __str__(self) -> str:

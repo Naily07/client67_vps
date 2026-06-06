@@ -294,7 +294,7 @@ class SellBulkProduct(VendeurEditorMixin, generics.ListCreateAPIView):
         datas = request.data
         user = request.user
             
-        customer = datas.get('customer', "")
+        customer = datas.get('customer')
         prixRestant = datas.get('prix_restant', 0)
                     
         venteList = datas.get("ventes", [])
@@ -447,7 +447,7 @@ class CreateFilAttenteProduct(VendeurEditorMixin, generics.ListCreateAPIView):
         datas = request.data
         user = request.user
             
-        customer = datas.get('customer', "")
+        customer = datas.get('customer')
         prixRestant = datas.get('prix_restant', 0)
         venteList = datas.get("ventes", [])
         venteInstancList = []
