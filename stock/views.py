@@ -1169,6 +1169,18 @@ class DeleteCustomer(GestionnaireEditorMixin, generics.RetrieveDestroyAPIView):
 
                 # Enfin supprimer le customer
                 self.perform_destroy(customer)
+                channel_layer = get_channel_layer()
+
+                async_to_sync(channel_layer.group_send)(
+                    f"customer_user_{request.user.id}",
+                    {
+                        "type": "customer_update",
+                        "message": {
+                            "action": "deleted",
+                            "customer_id": customer.id,
+                        }
+                    }
+                )
 
                 return Response(status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
@@ -1182,7 +1194,7 @@ class ListFactureCustomer(generics.ListAPIView):
         customer_id = self.kwargs.get('pk')
         return Facture.objects.filter(customer = customer_id)
     
-class UpdateCustomerTrosa(generics.UpdateAPIView):
+class UpdateCustomerTrosa(generics.UpdateAPIView, VendeurEditorMixin):
     queryset = Customer.objects.all()
     serializer_class = CustomerSerialiser
     lookup_field = 'pk'
@@ -1257,7 +1269,24 @@ class UpdateCustomerTrosa(generics.UpdateAPIView):
                         type_r="paiement",
                         remarque=remarque
                     )
+                channel_layer = get_channel_layer()
+                group_name = f"customer_user_{request.user}"
 
+                async_to_sync(channel_layer.group_send)(
+                    f"customer_user_{request.user.id}",
+                    {
+                        "type": "customer_update",
+                        "message": {
+                            "action": "payment",
+                            "customer": CustomerSerialiser(customer).data,
+                            "factures": FactureSerialiser(
+                                factures_modifiees,
+                                many=True
+                            ).data,
+                            "montant_applique": float(montant_applique),
+                        }
+                    }
+                )
                 return Response({
                     "customer": CustomerSerialiser(customer).data,
                     "factures": FactureSerialiser(factures_modifiees, many=True).data,
