@@ -41,6 +41,7 @@ urlpatterns = [
     # path('update-fournisseur', UpdateFournisserur.as_view(), name='update-fournisseur'),
     # CLienet
     path('clients', ListCustomer.as_view(), name='vente-produit'),
+    path('clients/<int:pk>', RetrieveCustomer.as_view(), name='vente-produit'),
     path('factures/client/<int:pk>', ListFactureCustomer.as_view(), name='vente-produit'),
     path('client/update-trosa/<int:pk>', UpdateCustomerTrosa.as_view(), name='vente-produit'),
     path('delete-client/<int:pk>', DeleteCustomer.as_view(), name='delete-client')

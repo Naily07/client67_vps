@@ -176,7 +176,16 @@ class CustomerSerialiser(serializers.ModelSerializer):
     
 class ReglementSerializer(serializers.ModelSerializer):
     date_paiement = serializers.SerializerMethodField(read_only = True)
-
+    type_r = serializers.ChoiceField([
+        ("payement_avance", "payement_avance"),
+        ("facture_annulee", "facture_annulee"),
+        ("ajout", "ajout"),
+        ("annulation_avance", "annulation_avance"),
+        ("avance", "avance")
+        ],
+        allow_blank = True,
+        required=False
+        )
     class Meta:
         model = Reglement
         fields = ['id', 'date_paiement', 'montant', 'moyen_paiement', 'type_r', 'remarque']

@@ -14,6 +14,9 @@ class ModelFacture(admin.ModelAdmin):
 class ModelTrosa(admin.ModelAdmin):
     list_display = ['pk',  'owner', 'montant_restant', 'montant']
 
+class ModelCustomer(admin.ModelAdmin):
+    list_display = ['pk',  'nom']
+
 admin.site.register(Detail)
 admin.site.register(Product, ModelProduct)
 admin.site.register(Marque)
@@ -24,3 +27,4 @@ admin.site.register(Facture, ModelFacture)
 admin.site.register(Trosa, ModelTrosa)
 admin.site.register(Reglement)
 admin.site.register(FilAttenteProduct)
+admin.site.register(Customer, ModelCustomer)

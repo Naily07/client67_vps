@@ -33,7 +33,10 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='facture',
             name='num',
-            field=models.CharField(blank=True, max_length=6, unique=True),
+            field=models.CharField(        
+                max_length=6,
+                blank=True,
+                null=True,),
         ),
         migrations.AddField(
             model_name='reglement',

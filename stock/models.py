@@ -47,13 +47,20 @@ class Trosa(models.Model):
     montant_restant = models.DecimalField(max_digits=10, decimal_places=0)
     reglements = GenericRelation(Reglement)
 
+class InvoiceCounter(models.Model):
+    year = models.IntegerField(unique=True)
+    current = models.IntegerField(default=0)
+
+    class Meta:
+        verbose_name = "Compteur de facture"
+
 class Facture(models.Model):
     date = models.DateTimeField(auto_now_add=True, null = True)
     prix_total = models.DecimalField(max_digits=10, decimal_places=0)
     prix_restant = models.DecimalField(max_digits=10, decimal_places=0)
     client = models.CharField(max_length=20, default="", blank=True)
     customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, related_name="%(class)s_related", null=True)    
-    num = models.CharField(max_length=6, unique=True, blank=True)
+    num = models.CharField(max_length=20, unique=True, blank=True, null = True)
     owner = models.ForeignKey(CustomUser, default=1, on_delete=models.CASCADE, related_name="%(class)s_related")
     reglements = GenericRelation(Reglement)
 
@@ -73,14 +80,16 @@ class Facture(models.Model):
         return formated
 
     def generate_num_unique(self):
+        from django.utils import timezone
+        current_year = timezone.now().year
         with transaction.atomic():
-            # Verrouille la dernière facture créée pour éviter les courses (best-effort)
-            last = Facture.objects.select_for_update().order_by('-id').first()
-            if last and last.num and last.num.isdigit():
-                next_int = int(last.num) + 1
-            else:
-                next_int = 1
-            return f"{next_int:06d}"
+            counter, created = InvoiceCounter.objects.select_for_update().get_or_create(
+                year=current_year,
+                defaults={"current": 0}
+            )
+            counter.current += 1
+            counter.save()
+            return f"FAC-{counter.year}-{counter.current:06d}"
 
 class Marque(models.Model):
     nom = models.CharField(max_length=50, blank=True)

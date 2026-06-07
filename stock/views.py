@@ -1128,6 +1128,11 @@ class ListCustomer(generics.ListAPIView):
     queryset = Customer.objects.all()
     serializer_class = CustomerSerialiser
 
+class RetrieveCustomer(generics.RetrieveAPIView):
+    serializer_class = CustomerSerialiser
+    queryset = Customer.objects.all()
+    lookup_field = "pk"
+
 class DeleteCustomer(GestionnaireEditorMixin, generics.RetrieveDestroyAPIView):
     serializer_class = CustomerSerialiser
     lookup_field = 'pk'
