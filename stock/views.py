@@ -939,6 +939,7 @@ class FacturePagination(PageNumberPagination):
     page_size = 50 
     page_size_query_param = 'page_size'  # optionnel: permet au client de définir le nombre d'objets par page
     max_page_size = 100  # optionnel: limite max
+
 class ListFacture(generics.ListAPIView, userFactureQs):
     queryset = Facture.objects.all()
     serializer_class = FactureSerialiser
@@ -1124,9 +1125,15 @@ class UpdateTrosa(generics.RetrieveUpdateAPIView):
         return Response(serializer.data)
  
 
+class CustomerPagination(PageNumberPagination):
+    page_size = 50 
+    page_size_query_param = 'page_size'  # optionnel: permet au client de définir le nombre d'objets par page
+    max_page_size = 100  # optionnel: limite max
+
 class ListCustomer(generics.ListAPIView):
     queryset = Customer.objects.all()
     serializer_class = CustomerSerialiser
+    pagination_class = CustomerPagination
 
 class RetrieveCustomer(generics.RetrieveAPIView):
     serializer_class = CustomerSerialiser
