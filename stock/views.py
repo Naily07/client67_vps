@@ -1135,6 +1135,12 @@ class ListCustomer(generics.ListAPIView):
     serializer_class = CustomerSerialiser
     pagination_class = CustomerPagination
 
+    def get_queryset(self):
+        params = self.request.query_params
+        qs = super().get_queryset()
+        if "client" in params:
+            qs = qs.filter(nom__icontains = params["client"])
+        return qs
 class RetrieveCustomer(generics.RetrieveAPIView):
     serializer_class = CustomerSerialiser
     queryset = Customer.objects.all()
