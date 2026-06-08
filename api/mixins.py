@@ -90,7 +90,7 @@ class userFactureQs(GenericAPIView):
                 raise ValidationError("Format de date invalide. Utilisez AAAA-MM-JJ")
         
         if 'client' in params:
-            qs = qs.filter(client__icontains = params['client'])
+            qs = qs.filter(customer__nom__icontains=params['client'])
 
         if 'impayee' in params and 'payee' in params:
             raise ValidationError("Vous ne pouvez pas filtrer à la fois sur payée et impayée.")
