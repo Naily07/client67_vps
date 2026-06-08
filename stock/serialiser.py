@@ -59,8 +59,8 @@ class ProductSerialiser(serializers.ModelSerializer):
     
     def get_detail_product(self, obj):
         detail = obj.detail
-        detailObj = Detail.objects.filter(designation__iexact = detail.designation).first()
-        return DetailSerialiser(detailObj).data
+        # detailObj = Detail.objects.filter(designation__iexact = detail.designation).first()
+        return DetailSerialiser(detail).data
     
     def get_marque_product(self, obj):
         if not obj.marque:
@@ -213,7 +213,6 @@ class FactureSerialiser(serializers.ModelSerializer):
     
     def get_owner(self, obj):
         owner = CustomUserSerialiser(obj.owner).data
-        print(owner)
         return owner['username']
     
     def get_date(self, obj):

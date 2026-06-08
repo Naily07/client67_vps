@@ -17,7 +17,7 @@ from api.mixins import userFactureQs
 from django.db import transaction
 from django.contrib.contenttypes.models import ContentType
 from rest_framework.pagination import PageNumberPagination
-
+from django.db.models import Prefetch
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from decimal import Decimal, InvalidOperation
@@ -1204,8 +1204,26 @@ class ListFactureCustomer(generics.ListAPIView):
     serializer_class = FactureSerialiser
 
     def get_queryset(self):
-        customer_id = self.kwargs.get('pk')
-        return Facture.objects.filter(customer = customer_id)
+        customer_id = self.kwargs.get("pk")
+
+        return (
+            Facture.objects
+            .filter(customer=customer_id)
+            .select_related(
+                "customer",
+                "owner",
+            )
+            .prefetch_related(
+                Prefetch(
+                    "venteproduct_related",
+                    queryset=VenteProduct.objects.select_related(
+                        "product",
+                        "product__detail",
+                    )
+                ),
+                "reglements"
+            )
+        )
     
 class UpdateCustomerTrosa(generics.UpdateAPIView, VendeurEditorMixin):
     queryset = Customer.objects.all()
